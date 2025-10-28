@@ -13,7 +13,7 @@ If you use Glazing in your research, please cite our work.
   year = {2025},
   url = {https://github.com/aaronstevenwhite/glazing},
   version = {0.2.1},
-  doi = {10.5281/zenodo.17185626}
+  doi = {10.5281/zenodo.17467082}
 }
 ```
 
