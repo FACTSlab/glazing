@@ -45,6 +45,9 @@ from glazing.framenet.models import (
     AnnotatedText,
     Frame,
     FrameElement,
+    Lexeme,
+    LexicalUnit,
+    SentenceCount,
 )
 from glazing.utils.xml_parser import (
     parse_attributes,
@@ -358,13 +361,154 @@ class FrameNetConverter:
             ),
         )
 
+    def _parse_lu_from_index(self, lu_elem: etree._Element) -> LexicalUnit:
+        """Parse a lexical unit from luIndex.xml element.
+
+        Parameters
+        ----------
+        lu_elem : etree._Element
+            The LU element from luIndex.xml.
+
+        Returns
+        -------
+        LexicalUnit
+            Parsed lexical unit.
+        """
+        attrs = parse_attributes(
+            lu_elem,
+            {"ID": int, "frameID": int, "numAnnotInstances": int, "hasAnnotation": bool},
+        )
+
+        # Extract required attributes
+        lu_id = int(attrs["ID"])
+        lu_name = str(attrs["name"])
+        frame_id = int(attrs["frameID"])
+        frame_name = str(attrs["frameName"])
+        status = str(attrs.get("status", "Unknown"))
+        has_annotation = bool(attrs.get("hasAnnotation", False))
+        num_annotated = int(attrs.get("numAnnotInstances", 0))
+
+        # Extract POS from name (e.g., "abandon.v" -> "V")
+        parts = lu_name.split(".")
+        if len(parts) >= 2:
+            pos_lower = parts[-1]
+            # Map lowercase POS to uppercase
+            pos_map = {"v": "V", "n": "N", "a": "A", "adv": "ADV", "prep": "PREP", "num": "NUM"}
+            pos = pos_map.get(pos_lower, pos_lower.upper())
+        else:
+            # Default to V if no POS specified
+            pos = "V"
+
+        # Create lexemes from the name
+        # Extract lemma part (everything before the last dot)
+        lemma = ".".join(parts[:-1]) if len(parts) >= 2 else lu_name
+
+        # Split multi-word LUs: try underscore first, then space
+        # Examples: "give_up.v" -> ["give", "up"], "a bit.n" -> ["a", "bit"]
+        if "_" in lemma:
+            word_parts = lemma.split("_")
+        elif " " in lemma:
+            word_parts = lemma.split(" ")
+        else:
+            word_parts = [lemma]
+
+        lexemes = []
+        for i, word in enumerate(word_parts):
+            if not word:  # Skip empty strings from splitting
+                continue
+            # First word is typically the headword
+            is_headword = i == 0
+            # Keep the word as-is: real FrameNet data has parentheses, brackets, etc.
+            lexemes.append(
+                Lexeme(
+                    name=word,
+                    pos=pos,  # type: ignore[arg-type]
+                    headword=is_headword,
+                    order=i + 1,
+                )
+            )
+
+        # Create sentence count from annotation data
+        sentence_count = SentenceCount(
+            annotated=num_annotated if has_annotation else 0,
+            total=num_annotated,  # For luIndex, we only have annotated count
+        )
+
+        # Create minimal definition (luIndex doesn't have full definitions)
+        definition = f"Lexical unit '{lu_name}' in frame '{frame_name}'."
+
+        # Note: Using field names, not aliases, since we're constructing programmatically
+        # The model uses aliases for deserialization from JSON
+        lu_dict = {
+            "id": lu_id,
+            "name": lu_name,
+            "pos": pos,
+            "definition": definition,
+            "status": status if status != "Unknown" else None,  # annotation_status alias
+            "totalAnnotated": num_annotated if has_annotation else None,  # total_annotated
+            "has_annotated_examples": has_annotation,
+            "frame_id": frame_id,
+            "frame_name": frame_name,
+            "sentence_count": sentence_count,
+            "lexemes": lexemes,
+        }
+        return LexicalUnit(**lu_dict)  # type: ignore[arg-type]
+
+    def convert_lu_index_file(self, filepath: Path | str) -> list[LexicalUnit]:
+        """Convert luIndex.xml to a list of LexicalUnit models.
+
+        Parameters
+        ----------
+        filepath : Path | str
+            Path to luIndex.xml file.
+
+        Returns
+        -------
+        list[LexicalUnit]
+            List of parsed LexicalUnit models.
+
+        Examples
+        --------
+        >>> converter = FrameNetConverter()
+        >>> lus = converter.convert_lu_index_file("framenet_v17/luIndex.xml")
+        >>> print(f"Loaded {len(lus)} lexical units")
+        'Loaded 13575 lexical units'
+        """
+        filepath = Path(filepath)
+
+        # Parse XML
+        if self.validate_schema:
+            root = parse_with_schema(filepath)
+        else:
+            tree = etree.parse(str(filepath))
+            root = tree.getroot()
+
+        # Parse all LU elements
+        lexical_units = []
+        lu_tag = f"{{{self.namespace}}}lu" if self.namespace else "lu"
+        for lu_elem in root.findall(lu_tag):
+            try:
+                lu = self._parse_lu_from_index(lu_elem)
+                lexical_units.append(lu)
+            except (ValueError, KeyError, TypeError) as e:
+                # Skip invalid LUs but continue processing
+                lu_name = lu_elem.get("name", "unknown")
+                # Log error but don't fail entire conversion
+                print(f"Warning: Failed to parse LU '{lu_name}': {e}")
+                continue
+
+        return lexical_units
+
     def convert_frames_directory(
         self,
         input_dir: Path | str,
         output_file: Path | str,
         pattern: str = "*.xml",
     ) -> int:
-        """Convert all frame files in a directory to JSON Lines.
+        """Convert all frame files in a directory to JSON Lines with lexical units.
+
+        This method parses frame XML files and associates them with lexical units
+        from luIndex.xml (expected to be in the parent directory of input_dir).
 
         Parameters
         ----------
@@ -393,19 +537,46 @@ class FrameNetConverter:
         input_dir = Path(input_dir)
         output_file = Path(output_file)
 
-        count = 0
+        # First, parse all frames
+        frames: list[Frame] = []
         errors: list[tuple[Path, Exception]] = []
 
+        for xml_file in sorted(input_dir.glob(pattern)):
+            try:
+                frame = self.convert_frame_file(xml_file)
+                frames.append(frame)
+            except (etree.XMLSyntaxError, ValueError, TypeError) as e:
+                errors.append((xml_file, e))
+
+        # Load lexical units from luIndex.xml (in parent directory)
+        parent_dir = input_dir.parent if input_dir.name == "frame" else input_dir
+        lu_index_path = parent_dir / "luIndex.xml"
+
+        lexical_units: list[LexicalUnit] = []
+        if lu_index_path.exists():
+            try:
+                lexical_units = self.convert_lu_index_file(lu_index_path)
+            except (etree.XMLSyntaxError, ValueError, TypeError) as e:
+                print(f"Warning: Failed to load lexical units from {lu_index_path}: {e}")
+
+        # Associate LUs with frames by frame_id
+        lu_by_frame: dict[int, list[LexicalUnit]] = {}
+        for lu in lexical_units:
+            if lu.frame_id not in lu_by_frame:
+                lu_by_frame[lu.frame_id] = []
+            lu_by_frame[lu.frame_id].append(lu)
+
+        # Update frames with their lexical units
+        for frame in frames:
+            frame.lexical_units = lu_by_frame.get(frame.id, [])
+
+        # Write frames with LUs to output file
+        count = 0
         with output_file.open("w", encoding="utf-8") as f:
-            for xml_file in sorted(input_dir.glob(pattern)):
-                try:
-                    frame = self.convert_frame_file(xml_file)
-                    # Write as JSON Lines
-                    json_line = frame.model_dump_json(exclude_none=True)
-                    f.write(json_line + "\n")
-                    count += 1
-                except (etree.XMLSyntaxError, ValueError, TypeError) as e:
-                    errors.append((xml_file, e))
+            for frame in frames:
+                json_line = frame.model_dump_json(exclude_none=True)
+                f.write(json_line + "\n")
+                count += 1
 
         # If there were any errors, raise an exception with details
         if errors:

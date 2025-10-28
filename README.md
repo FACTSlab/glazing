@@ -15,7 +15,7 @@ Unified data models and interfaces for syntactic and semantic frame ontologies.
 - 📦 **Type-safe models**: Pydantic v2 validation for all data structures
 - 🔍 **Unified search**: Query across all datasets with consistent API
 - 🔗 **Cross-references**: Automatic mapping between resources with confidence scores
-- 🎯 **Fuzzy search**: Find matches even with typos or partial queries
+- 🎯 **Fuzzy search**: Find data with typos, spelling variants, and inconsistencies
 - 🐳 **Docker support**: Use via Docker without local installation
 - 💾 **Efficient storage**: JSON Lines format with streaming support
 - 🐍 **Modern Python**: Full type hints, Python 3.13+ support
@@ -83,9 +83,9 @@ glazing search query "abandon"
 # Search specific dataset
 glazing search query "run" --dataset verbnet
 
-# Use fuzzy search for typos
-glazing search query "giv" --fuzzy
-glazing search query "instrment" --fuzzy --threshold 0.7
+# Find data with typos or spelling variants
+glazing search query "realize" --fuzzy
+glazing search query "organize" --fuzzy --threshold 0.8
 ```
 
 Resolve cross-references:
@@ -98,8 +98,8 @@ glazing xref extract
 glazing xref resolve "give.01" --source propbank
 glazing xref resolve "give-13.1" --source verbnet
 
-# Use fuzzy matching
-glazing xref resolve "giv.01" --source propbank --fuzzy
+# Find data with variations or inconsistencies
+glazing xref resolve "realize.01" --source propbank --fuzzy
 ```
 
 ## Python API
@@ -131,8 +131,8 @@ refs = xref.resolve("give.01", source="propbank")
 print(f"VerbNet classes: {refs['verbnet_classes']}")
 print(f"Confidence scores: {refs['confidence_scores']}")
 
-# Use fuzzy matching for typos
-refs = xref.resolve("giv.01", source="propbank", fuzzy=True)
+# Find data with variations or inconsistencies
+refs = xref.resolve("realize.01", source="propbank", fuzzy=True)
 print(f"Found match with fuzzy search: {refs['verbnet_classes']}")
 ```
 
@@ -141,9 +141,9 @@ Fuzzy search in Python:
 ```python
 from glazing.search import UnifiedSearch
 
-# Use fuzzy search to handle typos
+# Find data with typos or spelling variants
 search = UnifiedSearch()
-results = search.search_with_fuzzy("instrment", fuzzy_threshold=0.8)
+results = search.search_with_fuzzy("organize", fuzzy_threshold=0.8)
 
 for result in results[:5]:
     print(f"{result.dataset}: {result.name} (score: {result.score:.2f})")

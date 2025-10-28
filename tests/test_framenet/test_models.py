@@ -980,8 +980,10 @@ class TestLexeme:
 
     def test_invalid_lexeme_name(self):
         """Test validation of lexeme name."""
+        # Lexeme names are very permissive in real FrameNet data (spaces, special chars, etc.)
+        # Only empty strings should be rejected
         with pytest.raises(ValueError, match="Invalid lexeme name format"):
-            Lexeme(name="123invalid", pos="V")
+            Lexeme(name="", pos="V")
 
     def test_break_before_alias(self):
         """Test breakBefore field alias."""

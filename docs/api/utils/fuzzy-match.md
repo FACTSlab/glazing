@@ -4,7 +4,7 @@ Fuzzy string matching utilities using Levenshtein distance.
 
 ## Overview
 
-The fuzzy_match module provides functions for fuzzy string matching using Levenshtein distance and other similarity metrics. It includes text normalization and caching for performance.
+The fuzzy_match module provides functions for fuzzy string matching using Levenshtein distance and other similarity metrics. It includes text normalization and caching for performance. The primary use case is finding data that contains typos, morphological variants, or spelling inconsistencies in the underlying datasets.
 
 ## Functions
 

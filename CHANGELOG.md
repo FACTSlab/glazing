@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-10-28
+
+### Fixed
+
+- **FrameNet lexical units now properly loaded during conversion**
+  - Lexical units are now parsed from `luIndex.xml` during frame conversion
+  - All frames now include their associated lexical units with complete metadata
+  - Fixes critical data completeness issue where `frame.lexical_units` was always empty
+  - Enables querying frames by lexical unit name via the frame index
+  - Approximately 13,500 lexical units now correctly associated with their frames
+
 ## [0.2.0] - 2025-09-30
 
 ### Added
@@ -20,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for parsing complex symbols like ARG1-PPT, ?Theme_i, Core[Agent]
 
 #### Fuzzy Search and Matching
-- **Fuzzy search capability** with Levenshtein distance-based matching
+- **Fuzzy search capability** with Levenshtein distance-based matching to find data with typos, morphological variants, and spelling inconsistencies
 - **Configurable similarity thresholds** for controlling match precision
 - **Multi-field fuzzy matching** across names, descriptions, and identifiers
 - **Search result ranking** - New ranking module for scoring search results by match type and field relevance
@@ -186,7 +197,8 @@ Initial release of `glazing`, a package containing unified data models and inter
 - `tqdm >= 4.60.0` (progress bars)
 - `rich >= 13.0.0` (CLI formatting)
 
-[Unreleased]: https://github.com/aaronstevenwhite/glazing/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/aaronstevenwhite/glazing/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.2.1
 [0.2.0]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.2.0
 [0.1.1]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.1.1
 [0.1.0]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.1.0

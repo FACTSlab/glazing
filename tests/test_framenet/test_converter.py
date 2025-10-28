@@ -165,3 +165,174 @@ class TestFrameNetConverter:
         assert frame.id == 2031
         assert frame.name == "Abandonment"
         assert len(frame.frame_elements) == 5
+
+
+class TestLexicalUnitParsing:
+    """Test lexical unit parsing from luIndex.xml."""
+
+    def test_parse_lu_from_index_basic(self, tmp_path):
+        """Test parsing basic LU from luIndex element."""
+        lu_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <luIndex xmlns="http://framenet.icsi.berkeley.edu">
+            <lu numAnnotInstances="11" hasAnnotation="true" frameID="2031"
+                frameName="Abandonment" status="Finished_Initial"
+                name="abandon.v" ID="12345"/>
+        </luIndex>"""
+
+        lu_file = tmp_path / "luIndex.xml"
+        lu_file.write_text(lu_xml)
+
+        converter = FrameNetConverter()
+        lus = converter.convert_lu_index_file(lu_file)
+
+        assert len(lus) == 1
+        lu = lus[0]
+        assert lu.id == 12345
+        assert lu.name == "abandon.v"
+        assert lu.pos == "V"
+        assert lu.frame_id == 2031
+        assert lu.frame_name == "Abandonment"
+        assert lu.annotation_status == "Finished_Initial"
+        assert lu.has_annotated_examples is True
+        assert lu.sentence_count.total == 11
+        assert lu.sentence_count.annotated == 11
+        assert len(lu.lexemes) == 1
+        assert lu.lexemes[0].name == "abandon"
+        assert lu.lexemes[0].pos == "V"
+        assert lu.lexemes[0].headword is True
+
+    def test_parse_multi_word_lu(self, tmp_path):
+        """Test parsing multi-word LU like 'give_up.v'."""
+        lu_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <luIndex xmlns="http://framenet.icsi.berkeley.edu">
+            <lu numAnnotInstances="5" hasAnnotation="true" frameID="100"
+                frameName="Surrender" status="Created"
+                name="give_up.v" ID="999"/>
+        </luIndex>"""
+
+        lu_file = tmp_path / "luIndex.xml"
+        lu_file.write_text(lu_xml)
+
+        converter = FrameNetConverter()
+        lus = converter.convert_lu_index_file(lu_file)
+
+        assert len(lus) == 1
+        lu = lus[0]
+        assert lu.name == "give_up.v"
+        assert len(lu.lexemes) == 2
+        assert lu.lexemes[0].name == "give"
+        assert lu.lexemes[0].headword is True
+        assert lu.lexemes[0].order == 1
+        assert lu.lexemes[1].name == "up"
+        assert lu.lexemes[1].headword is False
+        assert lu.lexemes[1].order == 2
+
+    def test_parse_lu_different_pos(self, tmp_path):
+        """Test parsing LUs with different parts of speech."""
+        lu_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <luIndex xmlns="http://framenet.icsi.berkeley.edu">
+            <lu numAnnotInstances="0" hasAnnotation="false" frameID="1"
+                frameName="Test" status="Created" name="test.n" ID="1"/>
+            <lu numAnnotInstances="0" hasAnnotation="false" frameID="1"
+                frameName="Test" status="Created" name="test.a" ID="2"/>
+            <lu numAnnotInstances="0" hasAnnotation="false" frameID="1"
+                frameName="Test" status="Created" name="quickly.adv" ID="3"/>
+        </luIndex>"""
+
+        lu_file = tmp_path / "luIndex.xml"
+        lu_file.write_text(lu_xml)
+
+        converter = FrameNetConverter()
+        lus = converter.convert_lu_index_file(lu_file)
+
+        assert len(lus) == 3
+        assert lus[0].pos == "N"
+        assert lus[1].pos == "A"
+        assert lus[2].pos == "ADV"
+
+    def test_convert_frames_with_lus(self, tmp_path):
+        """Test converting frames directory with LU association."""
+        # Create frame directory structure
+        frames_dir = tmp_path / "frame"
+        frames_dir.mkdir()
+
+        # Create a test frame XML
+        frame_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <frame cBy="Test" cDate="01/01/2000 00:00:00 PST Mon" name="TestFrame" ID="100"
+               xmlns="http://framenet.icsi.berkeley.edu">
+            <definition>A test frame.</definition>
+            <FE name="Agent" ID="1" abbrev="Agt" coreType="Core" bgColor="FF0000" fgColor="FFFFFF">
+                <definition>The agent.</definition>
+            </FE>
+        </frame>"""
+
+        frame_file = frames_dir / "TestFrame.xml"
+        frame_file.write_text(frame_xml)
+
+        # Create luIndex.xml in parent directory
+        lu_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <luIndex xmlns="http://framenet.icsi.berkeley.edu">
+            <lu numAnnotInstances="5" hasAnnotation="true" frameID="100"
+                frameName="TestFrame" status="Finished_Initial"
+                name="test.v" ID="1000"/>
+            <lu numAnnotInstances="3" hasAnnotation="true" frameID="100"
+                frameName="TestFrame" status="Created"
+                name="examine.v" ID="1001"/>
+            <lu numAnnotInstances="0" hasAnnotation="false" frameID="999"
+                frameName="OtherFrame" status="Created"
+                name="other.v" ID="2000"/>
+        </luIndex>"""
+
+        lu_index_file = tmp_path / "luIndex.xml"
+        lu_index_file.write_text(lu_xml)
+
+        # Convert
+        output_file = tmp_path / "output.jsonl"
+        converter = FrameNetConverter()
+        count = converter.convert_frames_directory(frames_dir, output_file)
+
+        assert count == 1
+
+        # Verify output
+        with output_file.open("r") as f:
+            data = json.loads(f.readline())
+
+        assert data["id"] == 100
+        assert data["name"] == "TestFrame"
+        assert "lexical_units" in data
+        assert len(data["lexical_units"]) == 2
+
+        lu_names = [lu["name"] for lu in data["lexical_units"]]
+        assert "test.v" in lu_names
+        assert "examine.v" in lu_names
+        assert "other.v" not in lu_names  # Different frame
+
+    def test_lu_index_missing_no_crash(self, tmp_path):
+        """Test that conversion works even if luIndex.xml is missing."""
+        frames_dir = tmp_path / "frame"
+        frames_dir.mkdir()
+
+        frame_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <frame cBy="Test" cDate="01/01/2000 00:00:00 PST Mon" name="TestFrame" ID="100"
+               xmlns="http://framenet.icsi.berkeley.edu">
+            <definition>A test frame.</definition>
+        </frame>"""
+
+        frame_file = frames_dir / "TestFrame.xml"
+        frame_file.write_text(frame_xml)
+
+        # No luIndex.xml created
+
+        output_file = tmp_path / "output.jsonl"
+        converter = FrameNetConverter()
+        count = converter.convert_frames_directory(frames_dir, output_file)
+
+        assert count == 1
+
+        # Frame should have empty lexical_units list
+        with output_file.open("r") as f:
+            data = json.loads(f.readline())
+
+        assert data["id"] == 100
+        assert "lexical_units" in data
+        assert len(data["lexical_units"]) == 0

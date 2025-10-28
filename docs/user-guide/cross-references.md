@@ -30,8 +30,8 @@ refs = xref.resolve("give.01", source="propbank")
 print(f"VerbNet classes: {refs['verbnet_classes']}")
 print(f"Confidence scores: {refs['confidence_scores']}")
 
-# Use fuzzy matching for typos
-refs = xref.resolve("giv.01", source="propbank", fuzzy=True)
+# Find data with variations or inconsistencies
+refs = xref.resolve("realize.01", source="propbank", fuzzy=True)
 print(f"VerbNet classes: {refs['verbnet_classes']}")
 ```
 
@@ -93,13 +93,13 @@ xref.clear_cache()
 
 ### Fuzzy Matching
 
-The system supports fuzzy matching for handling typos and variations:
+The system supports fuzzy matching for finding data with typos, morphological variants, and spelling inconsistencies:
 
 ```python
-# Find matches even with typos
-refs = xref.resolve("transferr.01", source="propbank", fuzzy=True, threshold=0.7)
+# Find data with variations
+refs = xref.resolve("organize.01", source="propbank", fuzzy=True, threshold=0.8)
 
-# The system will find "transfer.01" and return its references
+# The system will find variants if they exist and return their references
 ```
 
 ### Confidence Scores
@@ -111,4 +111,4 @@ All mappings include confidence scores based on:
 
 ## Limitations
 
-Cross-references in these datasets are incomplete and sometimes approximate. VerbNet members don't always have WordNet mappings. PropBank rolesets may lack VerbNet mappings. The quality and coverage of references varies between dataset pairs. Fuzzy matching can occasionally produce false positives at lower thresholds.
+Cross-references in these datasets are incomplete and sometimes approximate. VerbNet members don't always have WordNet mappings. PropBank rolesets may lack VerbNet mappings. The quality and coverage of references varies between dataset pairs. The datasets themselves may contain typos or morphological variants, which fuzzy matching helps to address. Fuzzy matching can occasionally produce false positives at lower thresholds.
