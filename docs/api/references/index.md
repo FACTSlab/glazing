@@ -18,8 +18,8 @@ xref = CrossReferenceIndex()
 refs = xref.resolve("give.01", source="propbank")
 print(refs["verbnet_classes"])  # ['give-13.1']
 
-# Use fuzzy matching for typos
-refs = xref.resolve("giv.01", source="propbank", fuzzy=True)
+# Find data with variations or inconsistencies
+refs = xref.resolve("realize.01", source="propbank", fuzzy=True)
 ```
 
 ## Main Classes
@@ -53,7 +53,7 @@ class CrossReferenceIndex(
 
 - **Automatic Extraction**: References are extracted automatically on first use
 - **Caching**: Extracted references are cached for fast subsequent loads
-- **Fuzzy Matching**: Handle typos and variations with configurable thresholds
+- **Fuzzy Matching**: Find data with typos, morphological variants, and spelling inconsistencies
 - **Confidence Scores**: All mappings include confidence scores
 - **Progress Indicators**: Visual feedback during extraction
 

@@ -38,15 +38,15 @@ glazing search query "give" --limit 10 --json
 
 ### Fuzzy Search
 
-Use fuzzy matching to find results even with typos or partial matches:
+Use fuzzy matching to find data with typos, morphological variants, or spelling inconsistencies:
 
 ```bash
-# Find matches for typos
-glazing search query "giv" --fuzzy
-glazing search query "instrment" --fuzzy --threshold 0.7
+# Find data with variations
+glazing search query "realize" --fuzzy
+glazing search query "organize" --fuzzy --threshold 0.8
 
 # Adjust the threshold (0.0-1.0, higher is stricter)
-glazing search query "runing" --fuzzy --threshold 0.85
+glazing search query "analyze" --fuzzy --threshold 0.85
 ```
 
 ### Syntactic Pattern Search
@@ -110,9 +110,9 @@ Find mappings between datasets:
 glazing xref resolve "give.01" --source propbank
 glazing xref resolve "give-13.1" --source verbnet
 
-# Use fuzzy matching for typos
-glazing xref resolve "giv.01" --source propbank --fuzzy
-glazing xref resolve "transfer-11.1" --source verbnet --fuzzy --threshold 0.8
+# Find data with variations or inconsistencies
+glazing xref resolve "realize.01" --source propbank --fuzzy
+glazing xref resolve "organize-74" --source verbnet --fuzzy --threshold 0.8
 
 # Get JSON output
 glazing xref resolve "Giving" --source framenet --json

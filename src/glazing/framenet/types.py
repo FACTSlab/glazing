@@ -378,6 +378,11 @@ def is_valid_fe_abbrev(abbrev: str) -> bool:
 def is_valid_lu_name(name: str) -> bool:
     """Check if a string is a valid lexical unit name.
 
+    FrameNet LU names follow the pattern: lemma.pos where lemma can be
+    any string including multi-word expressions, proper nouns, acronyms,
+    and special characters. Examples: "abandon.v", "April.n", "a bit.n",
+    "(can't) help.v", "American [N and S Am].n"
+
     Parameters
     ----------
     name : str
@@ -386,9 +391,10 @@ def is_valid_lu_name(name: str) -> bool:
     Returns
     -------
     bool
-        True if the name matches the LU name pattern.
+        True if the name matches the LU name pattern (has at least one char and .pos).
     """
-    return bool(re.match(r"^[a-z][a-z0-9_\'-]*\.[a-z]+$", name, re.IGNORECASE))
+    # Very permissive: just require something.pos format
+    return bool(re.match(LU_NAME_PATTERN, name))
 
 
 def is_valid_username(username: str) -> bool:
@@ -426,10 +432,14 @@ def is_valid_hex_color(color: str) -> bool:
 # FrameNet-specific pattern constants
 FRAME_NAME_PATTERN = r"^[A-Za-z0-9_\-]+$"  # Allow hyphens in frame names
 FE_NAME_PATTERN = r"^[A-Za-z0-9_\-\.\'\s]+$"  # Allow hyphens, periods, apostrophes, spaces
-FE_ABBREV_PATTERN = r"^[A-Za-z0-9_\-\.\'\s/]+$"  # Allow slashes for abbreviations like H/C
-LU_NAME_PATTERN = r"^[a-z][a-z0-9_\'-]*\.[a-z]+$"
+FE_ABBREV_PATTERN = r"^[A-Za-z0-9_\-\.\'\s/]+$"  # Allow slashes like H/C
+# LU names: proper nouns, multi-word expressions, special chars (parentheses, brackets, etc.)
+# Examples: "abandon.v", "April.n", "(can't) help.v", "a bit.n"
+LU_NAME_PATTERN = r"^.+\.[a-z]+$"  # Anything followed by .pos (very permissive)
 USERNAME_PATTERN = r"^[A-Za-z][A-Za-z0-9]*$"
-LEXEME_NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9\'-]*$"
+# Lexeme names: spaces, hyphens, apostrophes, slashes, parentheses, brackets, digits
+# Examples: "abandon", "a bit", "Boxing Day", "Scud-B missile", "(can't"
+LEXEME_NAME_PATTERN = r"^.+$"  # Very permissive - any non-empty string
 
 # Counts and limits
 MAX_FRAME_ELEMENTS = 100  # Maximum FEs per frame

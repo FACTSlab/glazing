@@ -9,6 +9,7 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements
+        language_version: python3.13
       - id: mixed-line-ending
 
   - repo: local

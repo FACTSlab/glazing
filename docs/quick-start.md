@@ -81,8 +81,8 @@ refs = xref.resolve("give.01", source="propbank")
 print(f"VerbNet classes: {refs['verbnet_classes']}")
 print(f"Confidence scores: {refs['confidence_scores']}")
 
-# Use fuzzy matching for typos
-refs = xref.resolve("giv.01", source="propbank", fuzzy=True)
+# Find data with variations or inconsistencies
+refs = xref.resolve("realize.01", source="propbank", fuzzy=True)
 print(f"VerbNet classes: {refs['verbnet_classes']}")
 ```
 

@@ -181,7 +181,7 @@ def convert_wordnet(input_dir: Path, output_dir: Path, verbose: bool = False) ->
 
 
 def convert_framenet(input_dir: Path, output_dir: Path, verbose: bool = False) -> None:
-    """Convert FrameNet XML frames to JSON Lines.
+    """Convert FrameNet XML frames to JSON Lines with lexical units.
 
     Parameters
     ----------
@@ -209,14 +209,14 @@ def convert_framenet(input_dir: Path, output_dir: Path, verbose: bool = False) -
         TimeElapsedColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("Converting FrameNet files...", total=None)
+        task = progress.add_task("Converting FrameNet frames and lexical units...", total=None)
 
         count = converter.convert_frames_directory(str(frames_dir), str(output_file))
 
         progress.update(task, completed=True)
 
     if verbose:
-        console.print(f"[green]✓[/green] Converted {count} frames")
+        console.print(f"[green]✓[/green] Converted {count} frames with lexical units")
         console.print(f"  Output: {output_file}")
 
 

@@ -1,10 +1,10 @@
 # Fuzzy Search
 
-Fuzzy search uses Levenshtein distance to find matches despite typos, misspellings, or partial queries.
+Fuzzy search uses Levenshtein distance to find data that contains typos, morphological variants, or spelling inconsistencies.
 
 ## When to Use Fuzzy Search
 
-Fuzzy search is useful when exact matches fail due to typos in queries, uncertain spelling, partial matches, or when searching for similar but not exact terms.
+Fuzzy search is useful when the underlying datasets contain typos, morphological variants (e.g., "realise" vs "realize"), spelling inconsistencies, or partial forms. These datasets are compiled from various sources over time and may contain inconsistencies that would otherwise prevent exact matches.
 
 ## Implementation
 
@@ -16,23 +16,23 @@ The system calculates Levenshtein distance between strings, measuring the minimu
 
 ```bash
 # Enable fuzzy matching with default threshold (0.8)
-glazing search query "instrment" --fuzzy
+glazing search query "realize" --fuzzy
 
 # Custom threshold (lower = more permissive)
-glazing search query "giv" --fuzzy --threshold 0.6
+glazing search query "organize" --fuzzy --threshold 0.7
 
 # Combine with dataset filter
-glazing search query "trasfer" --fuzzy --dataset propbank
+glazing search query "analyze" --fuzzy --dataset propbank
 ```
 
 ### Cross-Reference Resolution
 
 ```bash
 # Fuzzy match cross-references
-glazing xref resolve "giv.01" --source propbank --fuzzy
+glazing xref resolve "realize.01" --source propbank --fuzzy
 
 # With custom threshold
-glazing xref resolve "trasnsfer.01" --source propbank --fuzzy --threshold 0.7
+glazing xref resolve "organize.01" --source propbank --fuzzy --threshold 0.8
 ```
 
 ## Python API
@@ -45,10 +45,10 @@ from glazing.search import UnifiedSearch
 search = UnifiedSearch()
 
 # Fuzzy search with default threshold
-results = search.search_with_fuzzy("instrment")
+results = search.search_with_fuzzy("realize")
 
 # Custom threshold
-results = search.search_with_fuzzy("giv", fuzzy_threshold=0.6)
+results = search.search_with_fuzzy("organize", fuzzy_threshold=0.7)
 
 # Check match scores
 for result in results[:5]:
@@ -63,14 +63,14 @@ from glazing.references.index import CrossReferenceIndex
 xref = CrossReferenceIndex()
 
 # Resolve with fuzzy matching
-refs = xref.resolve("giv.01", source="propbank", fuzzy=True)
+refs = xref.resolve("realize.01", source="propbank", fuzzy=True)
 
 # With confidence threshold
 refs = xref.resolve(
-    "trasfer.01",
+    "organize.01",
     source="propbank",
     fuzzy=True,
-    confidence_threshold=0.7
+    confidence_threshold=0.8
 )
 ```
 
@@ -80,22 +80,22 @@ refs = xref.resolve(
 from glazing.utils.fuzzy_match import fuzzy_match, find_best_match
 
 # Find multiple matches
-candidates = ["instrument", "argument", "document"]
-results = fuzzy_match("instrment", candidates, threshold=0.7)
+candidates = ["realize", "realise", "recognition"]
+results = fuzzy_match("realise", candidates, threshold=0.8)
 
 # Find single best match
-best = find_best_match("giv", ["give", "take", "have"])
+best = find_best_match("organize", ["organize", "organise", "organisation"])
 ```
 
 ## Threshold Selection
 
 | Threshold | Use Case | Example Matches |
 |-----------|----------|-----------------|
-| 0.9-1.0 | Near-exact matches | "give" → "give" |
-| 0.8-0.9 | Minor typos | "instrment" → "instrument" |
-| 0.7-0.8 | Multiple typos | "trasfer" → "transfer" |
-| 0.6-0.7 | Significant differences | "giv" → "give" |
-| Below 0.6 | Very loose matching | "doc" → "document" |
+| 0.9-1.0 | Near-exact matches | "organize" → "organise" |
+| 0.8-0.9 | Minor variations | "realize" → "realise" |
+| 0.7-0.8 | Multiple variations | "color" → "colour" |
+| 0.6-0.7 | Significant differences | "analyze" → "analyse" |
+| Below 0.6 | Very loose matching | "recognise" → "recognize" |
 
 ## Text Normalization
 
@@ -103,32 +103,32 @@ Text undergoes automatic normalization before matching: accents are removed (caf
 
 ## Examples
 
-### Finding Misspelled Verbs
+### Finding Data with Spelling Variants
 
 ```python
-search.search_with_fuzzy("recieve")  # Finds "receive"
-search.search_with_fuzzy("occure")   # Finds "occur"
-search.search_with_fuzzy("seperate") # Finds "separate"
+search.search_with_fuzzy("realize")  # Finds "realise" if dataset contains this variant
+search.search_with_fuzzy("organize") # Finds "organise" if dataset contains this variant
+search.search_with_fuzzy("analyze")  # Finds "analyse" if dataset contains this variant
 ```
 
-### Partial Matches
+### Partial Forms
 
-Short queries require lower thresholds:
+Short forms or abbreviations in data require lower thresholds:
 
 ```python
-search.search_with_fuzzy("giv", fuzzy_threshold=0.6)    # Finds "give"
-search.search_with_fuzzy("tak", fuzzy_threshold=0.6)    # Finds "take"
-search.search_with_fuzzy("trans", fuzzy_threshold=0.7)  # Finds "transfer"
+search.search_with_fuzzy("recognise", fuzzy_threshold=0.7)  # Finds "recognize"
+search.search_with_fuzzy("colour", fuzzy_threshold=0.7)     # Finds "color"
+search.search_with_fuzzy("favour", fuzzy_threshold=0.8)     # Finds "favor"
 ```
 
-### Spelling Variants
+### Morphological Variants
 
-The system handles British and American spelling differences:
+The system finds British and American spelling differences in the data:
 
 ```python
-search.search_with_fuzzy("realise")   # Finds "realize"
-search.search_with_fuzzy("colour")    # Finds "color"
-search.search_with_fuzzy("analyse")   # Finds "analyze"
+search.search_with_fuzzy("realise")   # Finds "realize" if present
+search.search_with_fuzzy("colour")    # Finds "color" if present
+search.search_with_fuzzy("analyse")   # Finds "analyze" if present
 ```
 
 ## Performance
@@ -147,9 +147,9 @@ from glazing.search import UnifiedSearch
 search = UnifiedSearch()
 
 # Process multiple queries
-queries = ["giv", "tak", "mak"]
+queries = ["realize", "organize", "analyze"]
 for query in queries:
-    results = search.search_with_fuzzy(query, fuzzy_threshold=0.7)
+    results = search.search_with_fuzzy(query, fuzzy_threshold=0.8)
     if results:
         print(f"{query} → {results[0].name}")
 ```

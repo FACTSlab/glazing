@@ -168,8 +168,8 @@ docker run --rm -v glazing-data:/data glazing:latest init
 # Search across datasets
 docker run --rm -v glazing-data:/data glazing:latest search query "give"
 
-# Search with fuzzy matching
-docker run --rm -v glazing-data:/data glazing:latest search query "giv" --fuzzy
+# Find data with variations using fuzzy matching
+docker run --rm -v glazing-data:/data glazing:latest search query "realize" --fuzzy
 
 # Extract cross-references
 docker run --rm -v glazing-data:/data glazing:latest xref extract

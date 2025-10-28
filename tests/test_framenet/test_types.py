@@ -266,8 +266,9 @@ class TestValidationFunctions:
 
     def test_invalid_lu_names(self):
         """Test LU name validation with invalid names."""
-        # Note: The regex uses re.IGNORECASE, so ABANDON.V is valid
-        invalid_names = ["abandon", "abandon.", ".v", "123.v", "test word.v", ""]
+        # Real FrameNet data is very permissive (proper nouns, spaces, special chars, etc.)
+        # Only reject truly invalid patterns: no .pos suffix, empty, or just a dot
+        invalid_names = ["abandon", "abandon.", ".v", "", "test."]
         for name in invalid_names:
             assert not is_valid_lu_name(name), f"Should reject invalid LU name: {name}"
 
@@ -353,11 +354,15 @@ class TestPatternConstants:
 
     def test_lexeme_name_pattern(self):
         """Test LEXEME_NAME_PATTERN regex."""
+        # Lexeme names are very permissive in real FrameNet data (spaces, digits, symbols)
+        # Examples from real data: "a bit", "Boxing Day", "Scud-B missile", "(can't"
         pattern = re.compile(LEXEME_NAME_PATTERN)
         assert pattern.match("abandon")
         assert pattern.match("give")
         assert pattern.match("it's")
-        assert not pattern.match("123word")
+        assert pattern.match("123word")  # Real FrameNet has numbers
+        assert pattern.match("a bit")  # Real FrameNet multi-word expressions
+        assert not pattern.match("")  # Only empty string is invalid
 
 
 class TestConstants:
