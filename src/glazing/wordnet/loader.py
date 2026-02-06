@@ -32,7 +32,6 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import cast
 
 from pydantic import ValidationError
 
@@ -40,7 +39,6 @@ from glazing.initialize import get_default_data_path
 from glazing.utils.cache import LRUCache
 from glazing.wordnet.models import (
     ExceptionEntry,
-    IndexEntry,
     Sense,
     Synset,
 )
@@ -62,7 +60,7 @@ class WordNetLoader:
     Parameters
     ----------
     data_path : Path | str | None, optional
-        Path to directory containing WordNet JSON Lines files.
+        Path to the WordNet JSONL file (e.g., wordnet.jsonl).
         If None, uses default path from environment.
     lazy : bool, default=False
         If True, load synsets on demand rather than all at once.
@@ -76,8 +74,8 @@ class WordNetLoader:
     ----------
     synsets : dict[SynsetOffset, Synset]
         All loaded synsets indexed by offset.
-    lemma_index : dict[str, dict[WordNetPOS, list[IndexEntry]]]
-        Index from lemmas to their index entries by POS.
+    lemma_index : dict[str, dict[WordNetPOS, list[SynsetOffset]]]
+        Index from lemmas to synset offsets by POS.
     sense_index : dict[SenseKey, Sense]
         Index from sense keys to sense objects.
     exceptions : dict[WordNetPOS, dict[str, list[str]]]
@@ -120,7 +118,7 @@ class WordNetLoader:
         Parameters
         ----------
         data_path : Path | str | None, optional
-            Path to directory containing WordNet JSON Lines files.
+            Path to the WordNet JSONL file (e.g., wordnet.jsonl).
             If None, uses default path from environment.
         lazy : bool, default=False
             If True, load synsets on demand.
@@ -138,7 +136,7 @@ class WordNetLoader:
 
         # Core data structures
         self.synsets: dict[SynsetOffset, Synset] = {}
-        self.lemma_index: dict[str, dict[WordNetPOS, list[IndexEntry]]] = defaultdict(dict)
+        self.lemma_index: dict[str, dict[WordNetPOS, list[SynsetOffset]]] = defaultdict(dict)
         self.sense_index: dict[SenseKey, Sense] = {}
         self.exceptions: dict[WordNetPOS, dict[str, list[str]]] = {}
 
@@ -148,8 +146,8 @@ class WordNetLoader:
         self.meronym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
         self.holonym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
 
-        # File paths for lazy loading
-        self._synset_file_index: dict[SynsetOffset, tuple[Path, int]] = {}
+        # File index for lazy loading (offset -> byte position in file)
+        self._synset_file_index: dict[SynsetOffset, int] = {}
 
         # Cache for lazy loading
         if lazy:
@@ -167,33 +165,32 @@ class WordNetLoader:
     def load(self) -> None:
         """Load all WordNet data from JSON Lines files.
 
-        This method loads synsets, builds indices, loads exceptions,
-        and constructs relation graphs. If lazy loading is enabled,
-        it only builds the file index without loading synset data.
+        This method loads synsets from the primary JSONL file, builds
+        lemma and relation indices from loaded data, and optionally loads
+        supplementary sense and exception data.
 
         Raises
         ------
         FileNotFoundError
-            If data directory or required files don't exist.
+            If the primary JSONL file doesn't exist.
         ValidationError
             If JSON data doesn't match expected schema.
         """
         if self._loaded:
             return
 
-        # Load synsets
+        # Load synsets from single JSONL file
         if self.lazy:
             self._build_file_index()
         else:
             self._load_all_synsets()
 
-        # Load index files
-        self._load_index_files()
+        # Build lemma index from loaded synsets
+        if not self.lazy:
+            self._build_lemma_index()
 
-        # Load sense index
+        # Load supplementary data if available
         self._load_sense_index()
-
-        # Load exceptions
         self._load_exceptions()
 
         # Build relation indices
@@ -203,45 +200,44 @@ class WordNetLoader:
         self._loaded = True
 
     def _load_all_synsets(self) -> None:
-        """Load all synsets from JSON Lines files."""
-        for pos in ["noun", "verb", "adj", "adv"]:
-            synset_file = self.data_path / f"data.{pos}.jsonl"
-            if not synset_file.exists():
-                continue
+        """Load all synsets from single JSONL file."""
+        if not self.data_path.exists():
+            return
 
-            with synset_file.open(encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
+        with self.data_path.open(encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
 
-                    try:
-                        data = json.loads(line)
-                        synset = Synset.model_validate(data)
-                        self.synsets[synset.offset] = synset
-                    except (json.JSONDecodeError, ValidationError) as e:
-                        # Log error but continue loading
-                        print(f"Error loading synset: {e}")
+                try:
+                    data = json.loads(line)
+                    synset = Synset.model_validate(data)
+                    self.synsets[synset.offset] = synset
+                except (json.JSONDecodeError, ValidationError):
+                    continue
 
     def _build_file_index(self) -> None:
-        """Build index of synset locations for lazy loading."""
-        for pos in ["noun", "verb", "adj", "adv"]:
-            synset_file = self.data_path / f"data.{pos}.jsonl"
-            if not synset_file.exists():
-                continue
+        """Build byte-offset index for lazy loading from single JSONL file."""
+        if not self.data_path.exists():
+            return
 
-            with synset_file.open(encoding="utf-8") as f:
-                for line_num, line in enumerate(f):
-                    if not line.strip():
-                        continue
+        with self.data_path.open(encoding="utf-8") as f:
+            while True:
+                byte_pos = f.tell()
+                line = f.readline()
+                if not line:
+                    break
 
-                    try:
-                        # Just extract offset without full validation
-                        data = json.loads(line)
-                        offset = data.get("offset")
-                        if offset:
-                            self._synset_file_index[offset] = (synset_file, line_num)
-                    except json.JSONDecodeError:
-                        pass
+                if not line.strip():
+                    continue
+
+                try:
+                    data = json.loads(line)
+                    offset = data.get("offset")
+                    if offset:
+                        self._synset_file_index[offset] = byte_pos
+                except json.JSONDecodeError:
+                    pass
 
     def _load_synset_lazy(self, offset: SynsetOffset) -> Synset | None:
         """Load a single synset on demand.
@@ -261,61 +257,44 @@ class WordNetLoader:
 
         # Check cache first
         if self._cache is not None:
-            # Create cache key from offset (cache expects strings)
             cached = self._cache.get(offset)
             if cached is not None:
                 return cached
 
-        # Load from file
-        file_info = self._synset_file_index.get(offset)
-        if not file_info:
+        # Load from file using byte offset
+        byte_pos = self._synset_file_index.get(offset)
+        if byte_pos is None:
             return None
 
-        synset_file, line_num = file_info
-
         try:
-            with synset_file.open(encoding="utf-8") as f:
-                for i, line in enumerate(f):
-                    if i == line_num:
-                        data = json.loads(line)
-                        synset = Synset.model_validate(data)
+            with self.data_path.open(encoding="utf-8") as f:
+                f.seek(byte_pos)
+                line = f.readline()
+                data = json.loads(line)
+                synset = Synset.model_validate(data)
 
-                        # Cache it
-                        if self._cache is not None:
-                            self._cache.put(offset, synset)
+                # Cache it
+                if self._cache is not None:
+                    self._cache.put(offset, synset)
 
-                        return synset
+                return synset
         except (json.JSONDecodeError, ValidationError):
             return None
 
-        return None
-
-    def _load_index_files(self) -> None:
-        """Load lemma index files."""
-        for pos_name, pos_tag in [("noun", "n"), ("verb", "v"), ("adj", "a"), ("adv", "r")]:
-            index_file = self.data_path / f"index.{pos_name}.jsonl"
-            if not index_file.exists():
-                continue
-
-            with index_file.open(encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-
-                    try:
-                        data = json.loads(line)
-                        entry = IndexEntry.model_validate(data)
-
-                        # Add to lemma index
-                        if pos_tag not in self.lemma_index[entry.lemma]:
-                            self.lemma_index[entry.lemma][cast(WordNetPOS, pos_tag)] = []
-                        self.lemma_index[entry.lemma][cast(WordNetPOS, pos_tag)].append(entry)
-                    except (json.JSONDecodeError, ValidationError) as e:
-                        print(f"Error loading index entry: {e}")
+    def _build_lemma_index(self) -> None:
+        """Build lemma→synset index from loaded synset data."""
+        for synset in self.synsets.values():
+            pos = synset.ss_type
+            for word in synset.words:
+                lemma = word.lemma.lower()
+                if pos not in self.lemma_index[lemma]:
+                    self.lemma_index[lemma][pos] = []
+                if synset.offset not in self.lemma_index[lemma][pos]:
+                    self.lemma_index[lemma][pos].append(synset.offset)
 
     def _load_sense_index(self) -> None:
-        """Load sense index file."""
-        sense_file = self.data_path / "index.sense.jsonl"
+        """Load sense index from supplementary JSONL file."""
+        sense_file = self.data_path.parent / "wordnet_senses.jsonl"
         if not sense_file.exists():
             return
 
@@ -328,31 +307,32 @@ class WordNetLoader:
                     data = json.loads(line)
                     sense = Sense.model_validate(data)
                     self.sense_index[sense.sense_key] = sense
-                except (json.JSONDecodeError, ValidationError) as e:
-                    print(f"Error loading sense: {e}")
+                except (json.JSONDecodeError, ValidationError):
+                    continue
 
     def _load_exceptions(self) -> None:
-        """Load morphological exception files."""
-        for pos_name, pos_tag in [("noun", "n"), ("verb", "v"), ("adj", "a"), ("adv", "r")]:
-            exc_file = self.data_path / f"{pos_name}.exc.jsonl"
-            if not exc_file.exists():
-                continue
+        """Load morphological exceptions from supplementary JSONL file."""
+        exc_file = self.data_path.parent / "wordnet_exceptions.jsonl"
+        if not exc_file.exists():
+            return
 
-            if pos_tag not in self.exceptions:
-                self.exceptions[cast(WordNetPOS, pos_tag)] = {}
+        with exc_file.open(encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
 
-            with exc_file.open(encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-
-                    try:
-                        data = json.loads(line)
-                        entry = ExceptionEntry.model_validate(data)
-                        pos_exceptions = self.exceptions[cast(WordNetPOS, pos_tag)]
-                        pos_exceptions[entry.inflected_form] = entry.base_forms
-                    except (json.JSONDecodeError, ValidationError) as e:
-                        print(f"Error loading exception: {e}")
+                try:
+                    data = json.loads(line)
+                    entry = ExceptionEntry.model_validate(data)
+                    # Determine POS from the base form by looking up in synsets
+                    # Store under all POS for simplicity (exceptions file doesn't have POS)
+                    pos = data.get("pos")
+                    if pos and pos in ("n", "v", "a", "r", "s"):
+                        if pos not in self.exceptions:
+                            self.exceptions[pos] = {}
+                        self.exceptions[pos][entry.inflected_form] = entry.base_forms
+                except (json.JSONDecodeError, ValidationError):
+                    continue
 
     def _build_relation_indices(self) -> None:
         """Build relation indices for efficient traversal."""
@@ -371,12 +351,12 @@ class WordNetLoader:
                         self.hypernym_index[pointer.offset].append(synset.offset)
 
                 # Meronym/holonym relations
-                elif pointer.symbol in ["%m", "%s", "%p"]:
+                elif pointer.symbol in ("%m", "%s", "%p"):
                     if pointer.offset not in self.meronym_index[synset.offset]:
                         self.meronym_index[synset.offset].append(pointer.offset)
                     if synset.offset not in self.holonym_index[pointer.offset]:
                         self.holonym_index[pointer.offset].append(synset.offset)
-                elif pointer.symbol in ["#m", "#s", "#p"]:
+                elif pointer.symbol in ("#m", "#s", "#p"):
                     if pointer.offset not in self.holonym_index[synset.offset]:
                         self.holonym_index[synset.offset].append(pointer.offset)
                     if synset.offset not in self.meronym_index[pointer.offset]:
@@ -426,23 +406,24 @@ class WordNetLoader:
         ...     print(synset.gloss)
         """
         synsets: list[Synset] = []
+        lemma_lower = lemma.lower()
 
-        if lemma not in self.lemma_index:
+        if lemma_lower not in self.lemma_index:
             return synsets
 
         # Get POS tags to search
+        pos_tags: list[WordNetPOS]
         if pos:
-            pos_tags = [pos] if pos in self.lemma_index[lemma] else []
+            pos_tags = [pos] if pos in self.lemma_index[lemma_lower] else []
         else:
-            pos_tags = list(self.lemma_index[lemma].keys())
+            pos_tags = list(self.lemma_index[lemma_lower].keys())
 
-        # Collect synsets
+        # Collect synsets from offset lists
         for pos_tag in pos_tags:
-            for entry in self.lemma_index[lemma][pos_tag]:
-                for offset in entry.synset_offsets:
-                    synset = self.get_synset(offset)
-                    if synset:
-                        synsets.append(synset)
+            for offset in self.lemma_index[lemma_lower].get(pos_tag, []):
+                synset = self.get_synset(offset)
+                if synset:
+                    synsets.append(synset)
 
         return synsets
 
@@ -479,7 +460,7 @@ class WordNetLoader:
         Returns
         -------
         list[Sense]
-            List of senses for the lemma.
+            List of senses for the lemma, sorted by sense number.
 
         Examples
         --------
@@ -489,18 +470,9 @@ class WordNetLoader:
         """
         senses = []
 
-        # Get synsets first
-        synsets = self.get_synsets_by_lemma(lemma, pos)
-
-        # Extract senses from synsets
-        for synset in synsets:
-            for word in synset.words:
-                if word.lemma == lemma:
-                    # Try to find corresponding sense
-                    for _key, sense in self.sense_index.items():
-                        if sense.lemma == lemma and sense.synset_offset == synset.offset:
-                            senses.append(sense)
-                            break
+        for sense in self.sense_index.values():
+            if sense.lemma == lemma and (pos is None or sense.ss_type == pos):
+                senses.append(sense)
 
         # Sort by sense number (frequency order)
         senses.sort(key=lambda s: s.sense_number)
@@ -611,7 +583,7 @@ def load_wordnet(
     Parameters
     ----------
     data_path : Path | str
-        Path to directory containing WordNet JSON Lines files.
+        Path to the WordNet JSONL file (e.g., wordnet.jsonl).
     lazy : bool, default=False
         If True, load synsets on demand.
     cache_size : int, default=1000
@@ -624,7 +596,7 @@ def load_wordnet(
 
     Examples
     --------
-    >>> wn = load_wordnet("data/wordnet")
+    >>> wn = load_wordnet("data/wordnet.jsonl")
     >>> dog = wn.get_synsets_by_lemma("dog", "n")[0]
     >>> print(dog.gloss)
     """

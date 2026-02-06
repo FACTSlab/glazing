@@ -315,6 +315,120 @@ class WordNetConverter:
 
         return entries
 
+    def parse_verb_framestext(self, filepath: Path | str) -> dict[int, str]:
+        """Parse verb.Framestext into a mapping of frame number to template string.
+
+        Parameters
+        ----------
+        filepath : Path | str
+            Path to verb.Framestext file.
+
+        Returns
+        -------
+        dict[int, str]
+            Mapping from frame number to template string.
+        """
+        filepath = Path(filepath)
+        if not filepath.exists():
+            return {}
+
+        frames: dict[int, str] = {}
+
+        with filepath.open("r", encoding="utf-8") as f:
+            for line_raw in f:
+                line = line_raw.strip()
+                if not line:
+                    continue
+
+                parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+
+                try:
+                    frame_num = int(parts[0])
+                    template = parts[1]
+                    frames[frame_num] = template
+                except ValueError:
+                    continue
+
+        return frames
+
+    def parse_verb_sentences(self, filepath: Path | str) -> dict[int, str]:
+        """Parse sents.vrb into a mapping of frame number to example sentence.
+
+        Parameters
+        ----------
+        filepath : Path | str
+            Path to sents.vrb file.
+
+        Returns
+        -------
+        dict[int, str]
+            Mapping from frame number to example sentence.
+        """
+        filepath = Path(filepath)
+        if not filepath.exists():
+            return {}
+
+        sentences: dict[int, str] = {}
+
+        with filepath.open("r", encoding="utf-8") as f:
+            for line_raw in f:
+                line = line_raw.strip()
+                if not line:
+                    continue
+
+                parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+
+                try:
+                    sent_num = int(parts[0])
+                    sentence = parts[1]
+                    sentences[sent_num] = sentence
+                except ValueError:
+                    continue
+
+        return sentences
+
+    def parse_cntlist(self, filepath: Path | str) -> dict[str, int]:
+        """Parse cntlist into a mapping of sense key to frequency count.
+
+        Parameters
+        ----------
+        filepath : Path | str
+            Path to cntlist file.
+
+        Returns
+        -------
+        dict[str, int]
+            Mapping from sense key to frequency count.
+        """
+        filepath = Path(filepath)
+        if not filepath.exists():
+            return {}
+
+        counts: dict[str, int] = {}
+
+        with filepath.open("r", encoding="utf-8") as f:
+            for line_raw in f:
+                line = line_raw.strip()
+                if not line:
+                    continue
+
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+
+                try:
+                    count = int(parts[0])
+                    sense_key = parts[1]
+                    counts[sense_key] = count
+                except ValueError:
+                    continue
+
+        return counts
+
     def convert_wordnet_database(
         self, wordnet_dir: Path | str, output_file: Path | str
     ) -> dict[str, int]:
@@ -363,6 +477,71 @@ class WordNetConverter:
                 all_synsets.extend(synsets)
                 counts[f"synsets_{pos_name}"] = len(synsets)
 
+        # Parse supplementary files for enrichment
+        framestext = self.parse_verb_framestext(wordnet_dir / "verb.Framestext")
+        sents = self.parse_verb_sentences(wordnet_dir / "sents.vrb")
+
+        # Build sense_key → (sense_number, tag_count) map from index.sense
+        sense_map: dict[str, tuple[int, int]] = {}
+        sense_index_file = wordnet_dir / "index.sense"
+        if sense_index_file.exists():
+            with sense_index_file.open("r", encoding="utf-8") as f:
+                for line_raw in f:
+                    line = line_raw.strip()
+                    if not line:
+                        continue
+                    parts = line.split()
+                    if len(parts) != 4:
+                        continue
+                    try:
+                        sk = parts[0]
+                        sense_number = int(parts[2])
+                        tag_count = int(parts[3])
+                        sense_map[sk] = (sense_number, tag_count)
+                    except ValueError:
+                        continue
+
+        # Parse cntlist to enhance tag_count data
+        cntlist = self.parse_cntlist(wordnet_dir / "cntlist")
+        for sk, count in cntlist.items():
+            if sk in sense_map:
+                sn, _ = sense_map[sk]
+                sense_map[sk] = (sn, count)
+            else:
+                sense_map[sk] = (0, count)
+
+        # ss_type to number mapping for sense key construction
+        ss_type_num_map: dict[str, int] = {
+            "n": 1,
+            "v": 2,
+            "a": 3,
+            "r": 4,
+            "s": 5,
+        }
+
+        # Enrich synsets with sense data and verb frame templates
+        for synset in all_synsets:
+            ss_num = ss_type_num_map.get(synset.ss_type, 1)
+
+            # Enrich words with sense_number and tag_count
+            for word in synset.words:
+                lemma_lower = word.lemma.lower()
+                sense_key = f"{lemma_lower}%{ss_num}:{synset.lex_filenum:02d}:{word.lex_id:02d}::"
+                if sense_key in sense_map:
+                    sn, tc = sense_map[sense_key]
+                    if sn > 0:
+                        word.sense_number = sn
+                    word.tag_count = tc
+
+            # Enrich verb frames with template and example_sentence
+            if synset.frames:
+                for frame in synset.frames:
+                    fn = frame.frame_number
+                    if fn in framestext:
+                        frame.template = framestext[fn]
+                    if fn in sents:
+                        frame.example_sentence = sents[fn]
+
         # Write all synsets to single output file
         with output_file.open("w", encoding="utf-8") as f:
             for synset in all_synsets:
@@ -371,6 +550,83 @@ class WordNetConverter:
         counts["total_synsets"] = len(all_synsets)
 
         return counts
+
+    def convert_sense_index(self, wordnet_dir: Path | str, output_file: Path | str) -> int:
+        """Parse index.sense and output Sense objects to JSONL.
+
+        Parameters
+        ----------
+        wordnet_dir : Path | str
+            Directory containing WordNet database files.
+        output_file : Path | str
+            Output JSON Lines file path.
+
+        Returns
+        -------
+        int
+            Number of sense entries written.
+
+        Raises
+        ------
+        FileNotFoundError
+            If index.sense file does not exist.
+        """
+        wordnet_dir = Path(wordnet_dir)
+        output_file = Path(output_file)
+
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        sense_file = wordnet_dir / "index.sense"
+        senses = self.parse_sense_index(sense_file)
+
+        with output_file.open("w", encoding="utf-8") as f:
+            for sense in senses:
+                f.write(f"{sense.model_dump_json()}\n")
+
+        return len(senses)
+
+    def convert_exceptions(self, wordnet_dir: Path | str, output_file: Path | str) -> int:
+        """Parse *.exc files and output ExceptionEntry objects to JSONL.
+
+        Parameters
+        ----------
+        wordnet_dir : Path | str
+            Directory containing WordNet database files.
+        output_file : Path | str
+            Output JSON Lines file path.
+
+        Returns
+        -------
+        int
+            Number of exception entries written.
+        """
+        wordnet_dir = Path(wordnet_dir)
+        output_file = Path(output_file)
+
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        all_entries: list[ExceptionEntry] = []
+
+        exc_files: list[tuple[str, WordNetPOS]] = [
+            ("noun.exc", "n"),
+            ("verb.exc", "v"),
+            ("adj.exc", "a"),
+            ("adv.exc", "r"),
+        ]
+
+        for exc_name, pos in exc_files:
+            exc_path = wordnet_dir / exc_name
+            if exc_path.exists():
+                entries = self.parse_exception_file(exc_path)
+                for entry in entries:
+                    entry.pos = pos
+                all_entries.extend(entries)
+
+        with output_file.open("w", encoding="utf-8") as f:
+            for entry in all_entries:
+                f.write(f"{entry.model_dump_json()}\n")
+
+        return len(all_entries)
 
     def _parse_data_line(self, line: str) -> Synset | None:
         """Parse a line from WordNet data file.
@@ -457,6 +713,9 @@ class WordNetConverter:
             frames = None
             if ss_type == "v" and idx < len(parts):
                 frames = []
+
+                # Skip frame count field
+                idx += 1
 
                 # Parse frames until no more "+" markers
                 while idx + 2 < len(parts) and parts[idx] == "+":
