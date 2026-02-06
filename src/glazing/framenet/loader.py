@@ -36,7 +36,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-from glazing.framenet.models import Frame, LexicalUnit, SemanticType
+from glazing.framenet.models import Frame, LexicalUnit, SemanticType, Sentence
 from glazing.framenet.types import FrameID
 from glazing.initialize import get_default_data_path
 
@@ -452,14 +452,15 @@ class FrameNetLoader:
         return lexical_units
 
     def load_semantic_types(
-        self, filepath: Path | str, skip_errors: bool = False
+        self, filepath: Path | str | None = None, skip_errors: bool = False
     ) -> list[SemanticType]:
         """Load SemanticType models from JSON Lines file.
 
         Parameters
         ----------
-        filepath : Path | str
+        filepath : Path | str | None, optional
             Path to JSON Lines file containing SemanticType data.
+            If None, looks for ``framenet_semtypes.jsonl`` alongside the primary data file.
         skip_errors : bool, default=False
             If True, skip invalid lines rather than raising errors.
 
@@ -475,6 +476,8 @@ class FrameNetLoader:
         ValueError
             If skip_errors=False and a line fails validation.
         """
+        if filepath is None:
+            filepath = self.data_path.parent / "framenet_semtypes.jsonl"
         filepath = Path(filepath)
         if not filepath.exists():
             msg = f"FrameNet semantic types file not found: {filepath}"
@@ -485,6 +488,42 @@ class FrameNetLoader:
             sem_types.append(sem_type)
 
         return sem_types
+
+    def load_fulltext(
+        self, filepath: Path | str | None = None, skip_errors: bool = False
+    ) -> list[Sentence]:
+        """Load Sentence models from fulltext JSON Lines file.
+
+        Parameters
+        ----------
+        filepath : Path | str | None, optional
+            Path to JSON Lines file containing Sentence data.
+            If None, looks for ``framenet_fulltext.jsonl`` alongside the primary data file.
+        skip_errors : bool, default=False
+            If True, skip invalid lines rather than raising errors.
+
+        Returns
+        -------
+        list[Sentence]
+            List of loaded Sentence models.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the input file does not exist.
+        """
+        if filepath is None:
+            filepath = self.data_path.parent / "framenet_fulltext.jsonl"
+        filepath = Path(filepath)
+        if not filepath.exists():
+            msg = f"FrameNet fulltext file not found: {filepath}"
+            raise FileNotFoundError(msg)
+
+        sentences = []
+        for sentence in Sentence.from_json_lines_file(filepath, skip_errors=skip_errors):
+            sentences.append(sentence)
+
+        return sentences
 
     def build_frame_index(self, frames: list[Frame]) -> FrameIndex:
         """Build searchable index from frames data.

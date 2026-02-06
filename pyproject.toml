@@ -125,6 +125,7 @@ ignore = [
 "tests/test_verbnet/test_converter.py" = ["E501", "S314"]
 "tests/test_verbnet/test_inheritance.py" = ["E501"]
 "tests/test_wordnet/test_converter.py" = ["E501"]
+"tests/test_integration/test_converter_loader_roundtrip.py" = ["E501"]
 "tests/test_cli/test_download.py" = ["E501", "EM102"]
 "tests/test_downloader.py" = ["E501", "F841"]
 "tests/test_verbnet/test_downloader.py" = ["E501", "F841"]
@@ -136,7 +137,7 @@ ignore = [
 "src/glazing/wordnet/converter.py" = ["C901", "PLR0912", "PLR0915"]
 "src/glazing/wordnet/loader.py" = ["C901", "PLR0912"]
 "src/glazing/verbnet/converter.py" = ["C901", "S320"]
-"src/glazing/framenet/converter.py" = ["S320"]
+"src/glazing/framenet/converter.py" = ["S320", "C901", "PLR0912", "PLR0915"]
 "src/glazing/propbank/converter.py" = ["S320"]
 
 [tool.ruff.lint.pydocstyle]
