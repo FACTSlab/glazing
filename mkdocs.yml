@@ -2,8 +2,8 @@ site_name: Glazing Documentation
 site_description: Unified data models and interfaces for syntactic and semantic frame ontologies
 site_author: Aaron Steven White
 site_url: https://glazing.readthedocs.io
-repo_name: aaronstevenwhite/glazing
-repo_url: https://github.com/aaronstevenwhite/glazing
+repo_name: factslab/glazing
+repo_url: https://github.com/factslab/glazing
 edit_uri: edit/main/docs/
 
 theme:
@@ -127,7 +127,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/aaronstevenwhite
+      link: https://github.com/factslab
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/glazing/
   version:

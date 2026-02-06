@@ -175,7 +175,7 @@ def search() -> None:
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files "
     "(default: ~/.local/share/glazing/converted).",
 )
@@ -318,7 +318,7 @@ def search_query(  # noqa: PLR0913
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files "
     "(default: ~/.local/share/glazing/converted).",
 )
@@ -371,7 +371,7 @@ def get_entity(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files "
     "(default: ~/.local/share/glazing/converted).",
 )
@@ -456,7 +456,7 @@ def search_role(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files "
     "(default: ~/.local/share/glazing/converted).",
 )
@@ -518,7 +518,7 @@ def find_cross_ref(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option(
@@ -579,7 +579,7 @@ def search_fuzzy(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option("--optional", is_flag=True, help="Find optional roles.")
@@ -643,7 +643,7 @@ def search_roles(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option(
@@ -722,7 +722,7 @@ def search_args(  # noqa: PLR0913
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option(
@@ -786,7 +786,7 @@ def search_relations(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option(
@@ -874,7 +874,7 @@ def search_syntax(
 @click.option(
     "--data-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    default=lambda: get_default_data_path(),
+    default=get_default_data_path,
     help="Directory containing converted JSON Lines files.",
 )
 @click.option(

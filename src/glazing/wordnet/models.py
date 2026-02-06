@@ -66,6 +66,10 @@ class Word(GlazingBaseModel):
         Word form (lowercase, underscores for spaces).
     lex_id : LexID
         Distinguishes same word in synset (0-15).
+    sense_number : int | None, default=None
+        Frequency-based sense ordering from index.sense.
+    tag_count : int, default=0
+        Semantic concordance tag count.
 
     Examples
     --------
@@ -78,6 +82,8 @@ class Word(GlazingBaseModel):
 
     lemma: str = Field(description="Word form (lowercase, underscores for spaces)")
     lex_id: LexID = Field(description="Lexical ID distinguishing same word in synset")
+    sense_number: int | None = Field(default=None, description="Frequency-based sense ordering")
+    tag_count: int = Field(default=0, ge=0, description="Semantic concordance tag count")
 
     @field_validator("lemma")
     @classmethod
@@ -100,7 +106,7 @@ class Word(GlazingBaseModel):
             If lemma format is invalid.
         """
         if not re.match(LEMMA_PATTERN, v):
-            msg = f"Invalid lemma format: {v}"
+            msg = f"Invalid lemma format: {v!r}"
             raise ValueError(msg)
         return v
 
@@ -177,6 +183,10 @@ class VerbFrame(GlazingBaseModel):
         Frame number (1-35).
     word_indices : list[int]
         Word indices (0 = all words, or specific indices).
+    template : str | None, default=None
+        Natural language frame template (e.g., "Something ----s").
+    example_sentence : str | None, default=None
+        Example sentence with %s placeholder for verb.
 
     Examples
     --------
@@ -188,6 +198,10 @@ class VerbFrame(GlazingBaseModel):
     frame_number: VerbFrameNumber = Field(description="Frame number (1-35)")
     word_indices: list[int] = Field(
         default_factory=list, description="Word indices (0 = all words)"
+    )
+    template: str | None = Field(default=None, description="Natural language frame template")
+    example_sentence: str | None = Field(
+        default=None, description="Example sentence with %s placeholder"
     )
 
     @field_validator("word_indices")
@@ -517,6 +531,7 @@ class ExceptionEntry(GlazingBaseModel):
 
     inflected_form: str = Field(description="Inflected/irregular form")
     base_forms: list[str] = Field(description="Base/lemma forms")
+    pos: WordNetPOS | None = Field(default=None, description="Part of speech")
 
     @field_validator("inflected_form", "base_forms")
     @classmethod

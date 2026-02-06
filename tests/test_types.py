@@ -318,11 +318,13 @@ class TestRegexPatterns:
         assert pattern.match("run_up")
         assert pattern.match("don't")
         assert pattern.match("mother-in-law")
+        assert pattern.match("Give")  # Capital letter allowed
+        assert pattern.match("123run")  # Digit start allowed
+        assert pattern.match("Dr.")  # Dots allowed
 
         # Invalid lemmas
-        assert not pattern.match("Give")  # Capital letter
-        assert not pattern.match("123run")  # Number start
         assert not pattern.match("")  # Empty string
+        assert not pattern.match(" give")  # Leading space
 
     def test_hex_color_pattern(self):
         """Test hex color pattern."""

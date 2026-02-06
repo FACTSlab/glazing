@@ -39,11 +39,17 @@ Examples
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
 from lxml import etree
 
+from glazing.references.models import (
+    CrossReference,
+    MappingMetadata,
+    VerbNetFrameNetMapping,
+)
 from glazing.types import LogicType
 from glazing.utils.xml_parser import parse_attributes
 from glazing.verbnet.models import (
@@ -268,8 +274,8 @@ class VerbNetConverter:
             # Parse cross-references from attributes
             features = {}
             wn_senses = str(attrs.get("wn", "")).strip()
-            str(attrs.get("grouping", "")).strip()
-            str(attrs.get("fn_mapping", "")).strip()
+            grouping = str(attrs.get("grouping", "")).strip()
+            fn_mapping = str(attrs.get("fn_mapping", "")).strip()
             features_str = str(attrs.get("features", "")).strip()
 
             # Parse features if present
@@ -292,14 +298,49 @@ class VerbNetConverter:
                             # Skip invalid percentage notation
                             continue
 
+            # Parse FrameNet mappings from fn_mapping attribute
+            framenet_mappings: list[VerbNetFrameNetMapping] = []
+            if fn_mapping and fn_mapping != "None":
+                framenet_mappings.append(
+                    VerbNetFrameNetMapping(
+                        frame_name=fn_mapping,
+                        confidence=None,
+                        mapping_source="manual",
+                        role_mappings=[],
+                    )
+                )
+
+            # Parse PropBank mappings from grouping attribute
+            propbank_mappings: list[CrossReference] = []
+            if grouping and grouping != "None":
+                mapping_metadata = MappingMetadata(
+                    created_date=datetime.now(tz=UTC),
+                    created_by="verbnet_xml",
+                    version="3.4",
+                    validation_status="unvalidated",
+                )
+                for roleset_id in grouping.split():
+                    if roleset_id.strip():
+                        propbank_mappings.append(
+                            CrossReference(
+                                source_dataset="verbnet",
+                                source_id=verbnet_key,
+                                source_version="3.4",
+                                target_dataset="propbank",
+                                target_id=roleset_id.strip(),
+                                mapping_type="direct",
+                                metadata=mapping_metadata,
+                            )
+                        )
+
             # Create member model
             member = Member(
                 name=name,
                 verbnet_key=verbnet_key,
                 wordnet_mappings=wordnet_mappings,
+                framenet_mappings=framenet_mappings,
+                propbank_mappings=propbank_mappings,
                 features=features,
-                # PropBank and FrameNet mappings would be parsed from
-                # grouping and fn_mapping attributes here in a full implementation
             )
 
             members.append(member)

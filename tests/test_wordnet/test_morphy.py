@@ -10,6 +10,26 @@ from glazing.wordnet.loader import WordNetLoader
 from glazing.wordnet.morphy import Morphy, morphy
 
 
+def _write_wordnet_files(
+    data_path: Path, synsets: list[dict], exceptions: list[dict] | None = None
+) -> Path:
+    """Helper to write synsets and exceptions in the single-file format.
+
+    Returns the path to the primary wordnet.jsonl file.
+    """
+    wordnet_file = data_path / "wordnet.jsonl"
+    with open(wordnet_file, "w") as f:
+        for synset in synsets:
+            f.write(json.dumps(synset) + "\n")
+
+    if exceptions:
+        with open(data_path / "wordnet_exceptions.jsonl", "w") as f:
+            for exc in exceptions:
+                f.write(json.dumps(exc) + "\n")
+
+    return wordnet_file
+
+
 class TestMorphy:
     """Test WordNet morphological processing."""
 
@@ -19,8 +39,9 @@ class TestMorphy:
         with tempfile.TemporaryDirectory() as tmpdir:
             data_path = Path(tmpdir)
 
-            # Create noun synsets with various lemmas
-            noun_synsets = [
+            # All synsets in a single file
+            all_synsets = [
+                # Noun synsets
                 {
                     "offset": "02084442",
                     "lex_filenum": 5,
@@ -60,14 +81,7 @@ class TestMorphy:
                     "pointers": [],
                     "gloss": "two-winged insects",
                 },
-            ]
-
-            with open(data_path / "data.noun.jsonl", "w") as f:
-                for synset in noun_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create verb synsets
-            verb_synsets = [
+                # Verb synsets
                 {
                     "offset": "01926311",
                     "lex_filenum": 38,
@@ -108,14 +122,7 @@ class TestMorphy:
                     "frames": [],
                     "gloss": "look attentively",
                 },
-            ]
-
-            with open(data_path / "data.verb.jsonl", "w") as f:
-                for synset in verb_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create adjective synsets
-            adj_synsets = [
+                # Adjective synsets
                 {
                     "offset": "00001740",
                     "lex_filenum": 0,
@@ -145,201 +152,33 @@ class TestMorphy:
                 },
             ]
 
-            with open(data_path / "data.adj.jsonl", "w") as f:
-                for synset in adj_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create noun index
-            noun_index = [
-                {
-                    "lemma": "dog",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["02084442"],
-                },
-                {
-                    "lemma": "child",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["09917593"],
-                },
-                {
-                    "lemma": "box",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["02866578"],
-                },
-                {
-                    "lemma": "fly",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["01930374"],
-                },
+            # All exceptions in a single file with pos field
+            all_exceptions = [
+                # Noun exceptions
+                {"inflected_form": "children", "base_forms": ["child"], "pos": "n"},
+                {"inflected_form": "geese", "base_forms": ["goose"], "pos": "n"},
+                {"inflected_form": "men", "base_forms": ["man"], "pos": "n"},
+                {"inflected_form": "women", "base_forms": ["woman"], "pos": "n"},
+                {"inflected_form": "teeth", "base_forms": ["tooth"], "pos": "n"},
+                {"inflected_form": "feet", "base_forms": ["foot"], "pos": "n"},
+                {"inflected_form": "mice", "base_forms": ["mouse"], "pos": "n"},
+                # Verb exceptions
+                {"inflected_form": "ran", "base_forms": ["run"], "pos": "v"},
+                {"inflected_form": "went", "base_forms": ["go"], "pos": "v"},
+                {"inflected_form": "was", "base_forms": ["be"], "pos": "v"},
+                {"inflected_form": "were", "base_forms": ["be"], "pos": "v"},
+                {"inflected_form": "been", "base_forms": ["be"], "pos": "v"},
+                {"inflected_form": "flew", "base_forms": ["fly"], "pos": "v"},
+                {"inflected_form": "flown", "base_forms": ["fly"], "pos": "v"},
+                # Adjective exceptions
+                {"inflected_form": "better", "base_forms": ["good", "well"], "pos": "a"},
+                {"inflected_form": "best", "base_forms": ["good", "well"], "pos": "a"},
+                {"inflected_form": "worse", "base_forms": ["bad"], "pos": "a"},
+                {"inflected_form": "worst", "base_forms": ["bad"], "pos": "a"},
             ]
 
-            with open(data_path / "index.noun.jsonl", "w") as f:
-                for entry in noun_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create verb index
-            verb_index = [
-                {
-                    "lemma": "run",
-                    "pos": "v",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["01926311"],
-                },
-                {
-                    "lemma": "fly",
-                    "pos": "v",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["01835496"],
-                },
-                {
-                    "lemma": "be",
-                    "pos": "v",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00010435"],
-                },
-                {
-                    "lemma": "watch",
-                    "pos": "v",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00654625"],
-                },
-            ]
-
-            with open(data_path / "index.verb.jsonl", "w") as f:
-                for entry in verb_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create adjective index
-            adj_index = [
-                {
-                    "lemma": "big",
-                    "pos": "a",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001740"],
-                },
-                {
-                    "lemma": "nice",
-                    "pos": "a",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001741"],
-                },
-                {
-                    "lemma": "good",
-                    "pos": "a",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001742"],
-                },
-                {
-                    "lemma": "well",
-                    "pos": "a",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001742"],
-                },
-            ]
-
-            with open(data_path / "index.adj.jsonl", "w") as f:
-                for entry in adj_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create noun exceptions
-            noun_exc = [
-                {"inflected_form": "children", "base_forms": ["child"]},
-                {"inflected_form": "geese", "base_forms": ["goose"]},
-                {"inflected_form": "men", "base_forms": ["man"]},
-                {"inflected_form": "women", "base_forms": ["woman"]},
-                {"inflected_form": "teeth", "base_forms": ["tooth"]},
-                {"inflected_form": "feet", "base_forms": ["foot"]},
-                {"inflected_form": "mice", "base_forms": ["mouse"]},
-            ]
-
-            with open(data_path / "noun.exc.jsonl", "w") as f:
-                for exc in noun_exc:
-                    f.write(json.dumps(exc) + "\n")
-
-            # Create verb exceptions
-            verb_exc = [
-                {"inflected_form": "ran", "base_forms": ["run"]},
-                {"inflected_form": "went", "base_forms": ["go"]},
-                {"inflected_form": "was", "base_forms": ["be"]},
-                {"inflected_form": "were", "base_forms": ["be"]},
-                {"inflected_form": "been", "base_forms": ["be"]},
-                {"inflected_form": "flew", "base_forms": ["fly"]},
-                {"inflected_form": "flown", "base_forms": ["fly"]},
-            ]
-
-            with open(data_path / "verb.exc.jsonl", "w") as f:
-                for exc in verb_exc:
-                    f.write(json.dumps(exc) + "\n")
-
-            # Create adjective exceptions
-            adj_exc = [
-                {"inflected_form": "better", "base_forms": ["good", "well"]},
-                {"inflected_form": "best", "base_forms": ["good", "well"]},
-                {"inflected_form": "worse", "base_forms": ["bad"]},
-                {"inflected_form": "worst", "base_forms": ["bad"]},
-            ]
-
-            with open(data_path / "adj.exc.jsonl", "w") as f:
-                for exc in adj_exc:
-                    f.write(json.dumps(exc) + "\n")
-
-            # Create empty sense index (required but not used in tests)
-            with open(data_path / "index.sense.jsonl", "w") as f:
-                pass
-
-            yield data_path
+            wordnet_file = _write_wordnet_files(data_path, all_synsets, all_exceptions)
+            yield wordnet_file
 
     @pytest.fixture
     def loader_with_data(self, temp_data_with_lemmas):
@@ -581,12 +420,10 @@ class TestMorphy:
 
     def test_ful_suffix_handling(self):
         """Test special handling of nouns ending with 'ful'."""
-        # Create test data with "box" and "boxful"
         with tempfile.TemporaryDirectory() as tmpdir:
             data_path = Path(tmpdir)
 
-            # Create noun synsets
-            noun_synsets = [
+            synsets = [
                 {
                     "offset": "02883344",
                     "lex_filenum": 6,
@@ -607,44 +444,8 @@ class TestMorphy:
                 },
             ]
 
-            with open(data_path / "data.noun.jsonl", "w") as f:
-                for synset in noun_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create index
-            noun_index = [
-                {
-                    "lemma": "box",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["02883344"],
-                },
-                {
-                    "lemma": "boxful",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["13767879"],
-                },
-            ]
-
-            with open(data_path / "index.noun.jsonl", "w") as f:
-                for entry in noun_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create empty files
-            with open(data_path / "index.sense.jsonl", "w") as f:
-                pass
-
-            # Load and test
-            loader = WordNetLoader(data_path)
+            wordnet_file = _write_wordnet_files(data_path, synsets)
+            loader = WordNetLoader(wordnet_file)
             loader.load()
             processor = Morphy(loader)
 
@@ -654,12 +455,10 @@ class TestMorphy:
 
     def test_collocation_simple(self):
         """Test simple multi-word expressions."""
-        # Create test data with "attorney_general"
         with tempfile.TemporaryDirectory() as tmpdir:
             data_path = Path(tmpdir)
 
-            # Create noun synset with multi-word expression
-            noun_synsets = [
+            synsets = [
                 {
                     "offset": "09780632",
                     "lex_filenum": 15,
@@ -689,54 +488,8 @@ class TestMorphy:
                 },
             ]
 
-            with open(data_path / "data.noun.jsonl", "w") as f:
-                for synset in noun_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create index
-            noun_index = [
-                {
-                    "lemma": "attorney",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["09780632"],
-                },
-                {
-                    "lemma": "general",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["10260706"],
-                },
-                {
-                    "lemma": "attorney_general",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["09781263"],
-                },
-            ]
-
-            with open(data_path / "index.noun.jsonl", "w") as f:
-                for entry in noun_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create empty files
-            with open(data_path / "index.sense.jsonl", "w") as f:
-                pass
-
-            # Load and test
-            loader = WordNetLoader(data_path)
+            wordnet_file = _write_wordnet_files(data_path, synsets)
+            loader = WordNetLoader(wordnet_file)
             loader.load()
             processor = Morphy(loader)
 
@@ -746,12 +499,10 @@ class TestMorphy:
 
     def test_hyphenated_words(self):
         """Test hyphenated multi-word expressions."""
-        # Create test data
         with tempfile.TemporaryDirectory() as tmpdir:
             data_path = Path(tmpdir)
 
-            # Create noun synsets
-            noun_synsets = [
+            synsets = [
                 {
                     "offset": "10639637",
                     "lex_filenum": 15,
@@ -772,44 +523,8 @@ class TestMorphy:
                 },
             ]
 
-            with open(data_path / "data.noun.jsonl", "w") as f:
-                for synset in noun_synsets:
-                    f.write(json.dumps(synset) + "\n")
-
-            # Create index
-            noun_index = [
-                {
-                    "lemma": "son",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["10639637"],
-                },
-                {
-                    "lemma": "son_in_law",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 0,
-                    "ptr_symbols": [],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["10105733"],
-                },
-            ]
-
-            with open(data_path / "index.noun.jsonl", "w") as f:
-                for entry in noun_index:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create empty files
-            with open(data_path / "index.sense.jsonl", "w") as f:
-                pass
-
-            # Load and test
-            loader = WordNetLoader(data_path)
+            wordnet_file = _write_wordnet_files(data_path, synsets)
+            loader = WordNetLoader(wordnet_file)
             loader.load()
             processor = Morphy(loader)
 

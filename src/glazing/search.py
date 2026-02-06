@@ -876,7 +876,7 @@ class UnifiedSearch:
         if not self.propbank:
             return references
 
-        pb_frameset = self.propbank.by_lemma(entity_id.split(".")[0])
+        pb_frameset = self.propbank.by_lemma(entity_id.split(".", maxsplit=1)[0])
         if not pb_frameset:
             return references
 
@@ -1051,7 +1051,7 @@ class UnifiedSearch:
         if not self.propbank:
             return references
 
-        pb_frameset = self.propbank.by_lemma(entity_id.split(".")[0])
+        pb_frameset = self.propbank.by_lemma(entity_id.split(".", maxsplit=1)[0])
         if not pb_frameset:
             return references
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glazing"
-version = "0.2.1"
+version = "0.2.2"
 description = "Unified data models and interfaces for syntactic and semantic frame ontologies"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -60,9 +60,9 @@ docs = [
 glazing = "glazing.cli:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/aaronstevenwhite/glazing"
-"Bug Reports" = "https://github.com/aaronstevenwhite/glazing/issues"
-"Source" = "https://github.com/aaronstevenwhite/glazing"
+"Homepage" = "https://github.com/factslab/glazing"
+"Bug Reports" = "https://github.com/factslab/glazing/issues"
+"Source" = "https://github.com/factslab/glazing"
 "Documentation" = "https://glazing.readthedocs.io"
 
 [tool.setuptools.packages.find]
@@ -125,6 +125,7 @@ ignore = [
 "tests/test_verbnet/test_converter.py" = ["E501", "S314"]
 "tests/test_verbnet/test_inheritance.py" = ["E501"]
 "tests/test_wordnet/test_converter.py" = ["E501"]
+"tests/test_integration/test_converter_loader_roundtrip.py" = ["E501"]
 "tests/test_cli/test_download.py" = ["E501", "EM102"]
 "tests/test_downloader.py" = ["E501", "F841"]
 "tests/test_verbnet/test_downloader.py" = ["E501", "F841"]
@@ -135,8 +136,8 @@ ignore = [
 "src/glazing/utils/xml_parser.py" = ["S320"]
 "src/glazing/wordnet/converter.py" = ["C901", "PLR0912", "PLR0915"]
 "src/glazing/wordnet/loader.py" = ["C901", "PLR0912"]
-"src/glazing/verbnet/converter.py" = ["C901", "S320"]
-"src/glazing/framenet/converter.py" = ["S320"]
+"src/glazing/verbnet/converter.py" = ["C901", "S320", "PLR0912"]
+"src/glazing/framenet/converter.py" = ["S320", "C901", "PLR0912", "PLR0915"]
 "src/glazing/propbank/converter.py" = ["S320"]
 
 [tool.ruff.lint.pydocstyle]

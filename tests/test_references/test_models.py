@@ -455,7 +455,7 @@ class TestUnifiedLemma:
         """Test invalid lemma format."""
         with pytest.raises(ValidationError) as exc_info:
             UnifiedLemma(
-                lemma="Give",  # Capital letter invalid
+                lemma=" give",  # Leading space invalid
                 pos="v",
                 framenet_lus=[],
                 propbank_rolesets=[],

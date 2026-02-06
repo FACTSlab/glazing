@@ -30,7 +30,7 @@ class TestWordNetConverter:
         return """  Copyright notice and license text here
   More license text
 00001740 29 v 01 breathe 0 005 $ 00001740 v 0000 @ 00002084 v 0000 ~ 00001740 v 0000 + 00002760 v 0000 ^ 00001740 v 0000 | take in and expel air through lungs
-00002084 29 v 02 respire 0 breathe 1 003 $ 00001740 v 0000 @ 00002325 v 0000 ~ 00002760 v 0000 + 01 00 + 02 01 | undergo the biomedical and metabolic processes of respiration by taking up oxygen and producing carbon monoxide
+00002084 29 v 02 respire 0 breathe 1 003 $ 00001740 v 0000 @ 00002325 v 0000 ~ 00002760 v 0000 02 + 01 00 + 02 01 | undergo the biomedical and metabolic processes of respiration by taking up oxygen and producing carbon monoxide
 """
 
     @pytest.fixture

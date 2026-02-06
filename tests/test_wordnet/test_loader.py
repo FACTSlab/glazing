@@ -13,12 +13,12 @@ class TestWordNetLoader:
     """Test WordNet loader functionality."""
 
     @pytest.fixture
-    def temp_data_dir(self):
-        """Create temporary directory with test data."""
+    def temp_data_file(self):
+        """Create temporary directory with test data in single-file format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             data_path = Path(tmpdir)
 
-            # Create test synset data
+            # All synsets go into a single wordnet.jsonl file
             synsets_data = [
                 {
                     "offset": "00001740",
@@ -45,75 +45,27 @@ class TestWordNetLoader:
                     ],
                     "gloss": "an entity that has physical existence",
                 },
+                {
+                    "offset": "00002325",
+                    "lex_filenum": 29,
+                    "lex_filename": "verb.body",
+                    "ss_type": "v",
+                    "words": [{"lemma": "run", "lex_id": 0}, {"lemma": "go", "lex_id": 1}],
+                    "pointers": [],
+                    "frames": [
+                        {"frame_number": 1, "word_indices": [0]},
+                        {"frame_number": 2, "word_indices": [0, 1]},
+                    ],
+                    "gloss": "move fast by using one's feet",
+                },
             ]
 
-            # Write noun synsets
-            with open(data_path / "data.noun.jsonl", "w") as f:
+            wordnet_file = data_path / "wordnet.jsonl"
+            with open(wordnet_file, "w") as f:
                 for synset in synsets_data:
                     f.write(json.dumps(synset) + "\n")
 
-            # Create test verb synset
-            verb_synset = {
-                "offset": "00002325",
-                "lex_filenum": 29,
-                "lex_filename": "verb.body",
-                "ss_type": "v",
-                "words": [{"lemma": "run", "lex_id": 0}, {"lemma": "go", "lex_id": 1}],
-                "pointers": [],
-                "frames": [
-                    {"frame_number": 1, "word_indices": [0]},
-                    {"frame_number": 2, "word_indices": [0, 1]},
-                ],
-                "gloss": "move fast by using one's feet",
-            }
-
-            with open(data_path / "data.verb.jsonl", "w") as f:
-                f.write(json.dumps(verb_synset) + "\n")
-
-            # Create index entries
-            index_data = [
-                {
-                    "lemma": "entity",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 1,
-                    "ptr_symbols": ["~"],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001740"],
-                },
-                {
-                    "lemma": "physical_entity",
-                    "pos": "n",
-                    "synset_cnt": 1,
-                    "p_cnt": 1,
-                    "ptr_symbols": ["@"],
-                    "sense_cnt": 1,
-                    "tagsense_cnt": 0,
-                    "synset_offsets": ["00001930"],
-                },
-            ]
-
-            with open(data_path / "index.noun.jsonl", "w") as f:
-                for entry in index_data:
-                    f.write(json.dumps(entry) + "\n")
-
-            # Create verb index
-            verb_index = {
-                "lemma": "run",
-                "pos": "v",
-                "synset_cnt": 1,
-                "p_cnt": 0,
-                "ptr_symbols": [],
-                "sense_cnt": 1,
-                "tagsense_cnt": 0,
-                "synset_offsets": ["00002325"],
-            }
-
-            with open(data_path / "index.verb.jsonl", "w") as f:
-                f.write(json.dumps(verb_index) + "\n")
-
-            # Create sense index
+            # Create sense index (supplementary file alongside primary)
             sense_data = [
                 {
                     "sense_key": "entity%1:03:00::",
@@ -137,40 +89,36 @@ class TestWordNetLoader:
                 },
             ]
 
-            with open(data_path / "index.sense.jsonl", "w") as f:
+            with open(data_path / "wordnet_senses.jsonl", "w") as f:
                 for sense in sense_data:
                     f.write(json.dumps(sense) + "\n")
 
-            # Create exception entries
+            # Create exception entries (with pos field)
             exc_data = [
-                {"inflected_form": "children", "base_forms": ["child"]},
-                {"inflected_form": "geese", "base_forms": ["goose"]},
+                {"inflected_form": "children", "base_forms": ["child"], "pos": "n"},
+                {"inflected_form": "geese", "base_forms": ["goose"], "pos": "n"},
+                {"inflected_form": "ran", "base_forms": ["run"], "pos": "v"},
             ]
 
-            with open(data_path / "noun.exc.jsonl", "w") as f:
+            with open(data_path / "wordnet_exceptions.jsonl", "w") as f:
                 for exc in exc_data:
                     f.write(json.dumps(exc) + "\n")
 
-            verb_exc = {"inflected_form": "ran", "base_forms": ["run"]}
+            yield wordnet_file
 
-            with open(data_path / "verb.exc.jsonl", "w") as f:
-                f.write(json.dumps(verb_exc) + "\n")
-
-            yield data_path
-
-    def test_loader_initialization(self, temp_data_dir):
+    def test_loader_initialization(self, temp_data_file):
         """Test loader initialization without autoload."""
-        loader = WordNetLoader(temp_data_dir, autoload=False)
+        loader = WordNetLoader(temp_data_file, autoload=False)
 
-        assert loader.data_path == temp_data_dir
+        assert loader.data_path == temp_data_file
         assert loader.lazy is False
         assert loader.cache_size == 1000
         assert not loader._loaded
         assert len(loader.synsets) == 0
 
-    def test_load_synsets(self, temp_data_dir):
+    def test_load_synsets(self, temp_data_file):
         """Test loading synsets from JSON Lines."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         # Check synsets loaded
@@ -186,23 +134,32 @@ class TestWordNetLoader:
         assert entity.words[0].lemma == "entity"
         assert len(entity.pointers) == 1
 
-    def test_load_index(self, temp_data_dir):
-        """Test loading index files."""
-        loader = WordNetLoader(temp_data_dir)
+    def test_load_lemma_index(self, temp_data_file):
+        """Test building lemma index from synset data."""
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
-        # Check lemma index
+        # Check lemma index built from synset words
         assert "entity" in loader.lemma_index
         assert "n" in loader.lemma_index["entity"]
         assert len(loader.lemma_index["entity"]["n"]) == 1
 
-        entry = loader.lemma_index["entity"]["n"][0]
-        assert entry.lemma == "entity"
-        assert entry.synset_offsets == ["00001740"]
+        # lemma_index values are SynsetOffset strings now
+        offset = loader.lemma_index["entity"]["n"][0]
+        assert offset == "00001740"
 
-    def test_load_sense_index(self, temp_data_dir):
+        # Check verb lemmas
+        assert "run" in loader.lemma_index
+        assert "v" in loader.lemma_index["run"]
+        assert loader.lemma_index["run"]["v"][0] == "00002325"
+
+        # "go" should also be indexed
+        assert "go" in loader.lemma_index
+        assert "v" in loader.lemma_index["go"]
+
+    def test_load_sense_index(self, temp_data_file):
         """Test loading sense index."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         # Check sense index
@@ -212,9 +169,9 @@ class TestWordNetLoader:
         assert sense.synset_offset == "00001740"
         assert sense.sense_number == 1
 
-    def test_load_exceptions(self, temp_data_dir):
+    def test_load_exceptions(self, temp_data_file):
         """Test loading exception files."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         # Check noun exceptions
@@ -227,9 +184,9 @@ class TestWordNetLoader:
         assert "ran" in loader.exceptions["v"]
         assert loader.exceptions["v"]["ran"] == ["run"]
 
-    def test_build_relation_indices(self, temp_data_dir):
+    def test_build_relation_indices(self, temp_data_file):
         """Test building relation indices."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         # Check hypernym index
@@ -240,9 +197,9 @@ class TestWordNetLoader:
         assert "00001740" in loader.hyponym_index
         assert "00001930" in loader.hyponym_index["00001740"]
 
-    def test_get_synset(self, temp_data_dir):
+    def test_get_synset(self, temp_data_file):
         """Test getting synset by offset."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         synset = loader.get_synset("00001740")
@@ -254,9 +211,9 @@ class TestWordNetLoader:
         synset = loader.get_synset("99999999")
         assert synset is None
 
-    def test_get_synsets_by_lemma(self, temp_data_dir):
+    def test_get_synsets_by_lemma(self, temp_data_file):
         """Test getting synsets by lemma."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         # Test noun
@@ -277,9 +234,9 @@ class TestWordNetLoader:
         synsets = loader.get_synsets_by_lemma("nonexistent")
         assert len(synsets) == 0
 
-    def test_get_sense_by_key(self, temp_data_dir):
+    def test_get_sense_by_key(self, temp_data_file):
         """Test getting sense by key."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         sense = loader.get_sense_by_key("entity%1:03:00::")
@@ -291,9 +248,9 @@ class TestWordNetLoader:
         sense = loader.get_sense_by_key("nonexistent%1:00:00::")
         assert sense is None
 
-    def test_get_senses_by_lemma(self, temp_data_dir):
+    def test_get_senses_by_lemma(self, temp_data_file):
         """Test getting senses by lemma."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         senses = loader.get_senses_by_lemma("entity", "n")
@@ -304,9 +261,9 @@ class TestWordNetLoader:
         assert len(senses) == 1
         assert senses[0].sense_key == "run%2:38:00::"
 
-    def test_get_hypernyms(self, temp_data_dir):
+    def test_get_hypernyms(self, temp_data_file):
         """Test getting hypernyms."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         synset = loader.get_synset("00001930")
@@ -314,9 +271,9 @@ class TestWordNetLoader:
         assert len(hypernyms) == 1
         assert hypernyms[0].offset == "00001740"
 
-    def test_get_hyponyms(self, temp_data_dir):
+    def test_get_hyponyms(self, temp_data_file):
         """Test getting hyponyms."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         synset = loader.get_synset("00001740")
@@ -324,9 +281,9 @@ class TestWordNetLoader:
         assert len(hyponyms) == 1
         assert hyponyms[0].offset == "00001930"
 
-    def test_lazy_loading(self, temp_data_dir):
+    def test_lazy_loading(self, temp_data_file):
         """Test lazy loading mode."""
-        loader = WordNetLoader(temp_data_dir, lazy=True, cache_size=2)
+        loader = WordNetLoader(temp_data_file, lazy=True, cache_size=2)
         loader.load()
 
         # Synsets should not be loaded yet
@@ -346,9 +303,9 @@ class TestWordNetLoader:
         assert cached is not None
         assert cached.offset == "00001740"
 
-    def test_get_exceptions(self, temp_data_dir):
+    def test_get_exceptions(self, temp_data_file):
         """Test getting morphological exceptions."""
-        loader = WordNetLoader(temp_data_dir)
+        loader = WordNetLoader(temp_data_file)
         loader.load()
 
         noun_exc = loader.get_exceptions("n")
@@ -363,9 +320,9 @@ class TestWordNetLoader:
         adv_exc = loader.get_exceptions("r")
         assert len(adv_exc) == 0
 
-    def test_load_wordnet_function(self, temp_data_dir):
+    def test_load_wordnet_function(self, temp_data_file):
         """Test the convenience load_wordnet function."""
-        wn = load_wordnet(temp_data_dir)
+        wn = load_wordnet(temp_data_file)
 
         assert isinstance(wn, WordNetLoader)
         assert wn._loaded is True

@@ -161,7 +161,9 @@ VERBNET_CLASS_PATTERN = r"^[a-z_]+-[0-9]+(?:\.[0-9]+)*(?:-[0-9]+)*$"  # e.g., "g
 VERBNET_KEY_PATTERN = r"^[a-z_-]+#\d+$"  # e.g., "give#2"
 
 # Name validation patterns
-LEMMA_PATTERN = r"^[a-z][a-z0-9_\'-]*$"  # Word lemmas
+LEMMA_PATTERN = (
+    r"^[a-zA-Z0-9][a-zA-Z0-9_\'\-\.\/]*$"  # Word lemmas (incl. proper nouns, abbreviations)
+)
 
 # Color validation for FrameNet
 HEX_COLOR_PATTERN = r"^#?[0-9A-Fa-f]{6}$"  # 6-digit hex color with optional # prefix

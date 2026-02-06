@@ -2,23 +2,23 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/glazing)](https://pypi.org/project/glazing/)
 [![Python versions](https://img.shields.io/pypi/pyversions/glazing)](https://pypi.org/project/glazing/)
-[![CI](https://github.com/aaronstevenwhite/glazing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aaronstevenwhite/glazing/actions/workflows/ci.yml)
+[![CI](https://github.com/factslab/glazing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/factslab/glazing/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/glazing/badge/?version=latest)](https://glazing.readthedocs.io/en/latest/?badge=latest)
-[![License](https://img.shields.io/pypi/l/glazing)](https://github.com/aaronstevenwhite/glazing/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/glazing)](https://github.com/factslab/glazing/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17467082.svg)](https://doi.org/10.5281/zenodo.17467082)
 
 Unified data models and interfaces for syntactic and semantic frame ontologies.
 
 ## Features
 
-- 🚀 **One-command setup**: `glazing init` downloads and prepares all datasets
-- 📦 **Type-safe models**: Pydantic v2 validation for all data structures
-- 🔍 **Unified search**: Query across all datasets with consistent API
-- 🔗 **Cross-references**: Automatic mapping between resources with confidence scores
-- 🎯 **Fuzzy search**: Find data with typos, spelling variants, and inconsistencies
-- 🐳 **Docker support**: Use via Docker without local installation
-- 💾 **Efficient storage**: JSON Lines format with streaming support
-- 🐍 **Modern Python**: Full type hints, Python 3.13+ support
+- **One-command setup**: `glazing init` downloads and prepares all datasets
+- **Type-safe models**: Pydantic v2 validation for all data structures
+- **Unified search**: Query across all datasets with consistent API
+- **Cross-references**: Automatic mapping between resources with confidence scores
+- **Fuzzy search**: Find data with typos, spelling variants, and inconsistencies
+- **Docker support**: Use via Docker without local installation
+- **Efficient storage**: JSON Lines format with streaming support
+- **Modern Python**: Full type hints, Python 3.13+ support
 
 ## Installation
 
@@ -34,7 +34,7 @@ Build and run Glazing in a containerized environment:
 
 ```bash
 # Build the image
-git clone https://github.com/aaronstevenwhite/glazing.git
+git clone https://github.com/factslab/glazing.git
 cd glazing
 docker build -t glazing:latest .
 
@@ -167,11 +167,11 @@ Full documentation available at [https://glazing.readthedocs.io](https://glazing
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](https://github.com/aaronstevenwhite/glazing/blob/main/CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](https://github.com/factslab/glazing/blob/main/CONTRIBUTING.md) for guidelines.
 
 ```bash
 # Development setup
-git clone https://github.com/aaronstevenwhite/glazing
+git clone https://github.com/factslab/glazing
 cd glazing
 pip install -e ".[dev]"
 ```
@@ -185,22 +185,22 @@ If you use Glazing in your research, please cite:
   author = {White, Aaron Steven},
   title = {Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies},
   year = {2025},
-  url = {https://github.com/aaronstevenwhite/glazing},
+  url = {https://github.com/factslab/glazing},
   doi = {10.5281/zenodo.17467082}
 }
 ```
 
 ## License
 
-This package is licensed under an MIT License. See [LICENSE](https://github.com/aaronstevenwhite/glazing/blob/main/LICENSE) file for details.
+This package is licensed under an MIT License. See [LICENSE](https://github.com/factslab/glazing/blob/main/LICENSE) file for details.
 
 ## Links
 
-- [GitHub Repository](https://github.com/aaronstevenwhite/glazing)
+- [GitHub Repository](https://github.com/factslab/glazing)
 - [PyPI Package](https://pypi.org/project/glazing/)
 - [Documentation](https://glazing.readthedocs.io)
-- [Issue Tracker](https://github.com/aaronstevenwhite/glazing/issues)
+- [Issue Tracker](https://github.com/factslab/glazing/issues)
 
 ## Acknowledgments
 
-This project was funded by a [National Science Foundation](https://www.nsf.gov/) ([BCS-2040831](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2040831)) and builds upon the foundational work of the FrameNet, PropBank, VerbNet, and WordNet teams.
+This project was funded by a [National Science Foundation](https://www.nsf.gov/) ([BCS-2040831](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2040831)) and builds upon the foundational work of the FrameNet, PropBank, VerbNet, and WordNet teams. It was architected and implemented with the help of Claude Code.

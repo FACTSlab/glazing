@@ -11,23 +11,23 @@ If you use Glazing in your research, please cite our work.
   author = {White, Aaron Steven},
   title = {Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies},
   year = {2025},
-  url = {https://github.com/aaronstevenwhite/glazing},
-  version = {0.2.1},
+  url = {https://github.com/factslab/glazing},
+  version = {0.2.2},
   doi = {10.5281/zenodo.17467082}
 }
 ```
 
 ### APA
 
-White, A. S. (2025). *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies* (Version 0.2.1) [Computer software]. https://github.com/aaronstevenwhite/glazing
+White, A. S. (2025). *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies* (Version 0.2.2) [Computer software]. https://github.com/factslab/glazing
 
 ### Chicago
 
-White, Aaron Steven. 2025. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.1. https://github.com/aaronstevenwhite/glazing.
+White, Aaron Steven. 2025. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.2. https://github.com/factslab/glazing.
 
 ### MLA
 
-White, Aaron Steven. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.1, 2025, https://github.com/aaronstevenwhite/glazing.
+White, Aaron Steven. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.2, 2025, https://github.com/factslab/glazing.
 
 ## Citing Datasets
 
@@ -65,4 +65,4 @@ This project was funded by a [National Science Foundation](https://www.nsf.gov/)
 
 For questions about citing Glazing, contact:
 - Aaron Steven White: aaron.white@rochester.edu
-- GitHub Issues: https://github.com/aaronstevenwhite/glazing/issues
+- GitHub Issues: https://github.com/factslab/glazing/issues

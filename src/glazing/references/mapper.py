@@ -919,8 +919,8 @@ class ReferenceMapper:
             Descriptive name.
         """
         if "." in roleset_id:
-            lemma_part = roleset_id.split(".")[0]
-            return f"{lemma_part} (sense {roleset_id.split('.')[-1]})"
+            lemma_part, sense_part = roleset_id.split(".", maxsplit=1)
+            return f"{lemma_part} (sense {sense_part})"
         return f"Roleset {roleset_id}"
 
     def _build_verbnet_member_refs(
