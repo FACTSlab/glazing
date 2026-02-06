@@ -168,6 +168,30 @@ def _process_dataset(name: str, data_dir: Path, verbose: bool) -> bool:
         return True
 
 
+def _convert_wordnet_supplementary(
+    converter: object, source: Path, converted_dir: Path, verbose: bool
+) -> None:
+    sense_count = converter.convert_sense_index(source, converted_dir / "wordnet_senses.jsonl")  # type: ignore[attr-defined]
+    exc_count = converter.convert_exceptions(source, converted_dir / "wordnet_exceptions.jsonl")  # type: ignore[attr-defined]
+    if verbose:
+        click.echo(f"  ✓ Converted {sense_count} senses, {exc_count} exceptions")
+
+
+def _convert_framenet_supplementary(
+    converter: object, download_path: Path, converted_dir: Path, verbose: bool
+) -> None:
+    semtype_count = converter.convert_semtypes_file(  # type: ignore[attr-defined]
+        download_path / "semTypes.xml", converted_dir / "framenet_semtypes.jsonl"
+    )
+    if verbose:
+        click.echo(f"  ✓ Converted {semtype_count} semantic types")
+    fulltext_count = converter.convert_fulltext_directory(  # type: ignore[attr-defined]
+        download_path / "fulltext", converted_dir / "framenet_fulltext.jsonl"
+    )
+    if verbose:
+        click.echo(f"  ✓ Converted {fulltext_count} fulltext sentences")
+
+
 def _convert_dataset(
     name: str, download_path: Path, output: Path, converter: object, verbose: bool
 ) -> None:
@@ -200,13 +224,15 @@ def _convert_dataset(
         source = download_path
         stats = converter.convert_wordnet_database(source, output)  # type: ignore[attr-defined]
         if verbose:
-            synset_count = sum(v for k, v in stats.items() if k.startswith("synsets_"))
-            click.echo(f"  ✓ Converted {synset_count} synsets")
+            total = stats.get("total_synsets", 0)
+            click.echo(f"  ✓ Converted {total} synsets")
+        _convert_wordnet_supplementary(converter, source, output.parent, verbose)
     elif name == "framenet":
         source = download_path / "frame"
         count = converter.convert_frames_directory(source, output)  # type: ignore[attr-defined]
         if verbose:
             click.echo(f"  ✓ Converted {count} frames")
+        _convert_framenet_supplementary(converter, download_path, output.parent, verbose)
 
 
 def initialize_datasets(
