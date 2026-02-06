@@ -30,7 +30,14 @@ class SpecialCaseRegistry:
                 "replacement": ">in</arg>",
                 "description": "Mismatched closing tag",
             }
-        ]
+        ],
+        "AMR-UMR-91-rolesets.xml": [
+            {
+                "pattern": "      </example>\n      </example>",
+                "replacement": "      </example>",
+                "description": "Duplicate </example> closing tag in reference-illustration.91",
+            }
+        ],
     }
 
     PROPBANK_ROLESET_EXCEPTIONS: ClassVar[dict[str, str]] = {

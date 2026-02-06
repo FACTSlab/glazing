@@ -33,6 +33,7 @@ from io import BytesIO
 from pathlib import Path
 
 from lxml import etree
+from pydantic import ValidationError
 
 from glazing.propbank.models import (
     Alias,
@@ -281,14 +282,18 @@ class PropBankConverter:
             with contextlib.suppress(ValueError, TypeError):
                 end = int(end)
 
-            args.append(
-                Arg(
-                    type=str(attrs["type"]),  # type: ignore[arg-type]
-                    start=start,  # type: ignore[arg-type]
-                    end=end,  # type: ignore[arg-type]
-                    text=arg.text,
+            try:
+                args.append(
+                    Arg(
+                        type=str(attrs["type"]),  # type: ignore[arg-type]
+                        start=start,  # type: ignore[arg-type]
+                        end=end,  # type: ignore[arg-type]
+                        text=arg.text,
+                    )
                 )
-            )
+            except ValidationError:
+                # Skip args with non-standard types (e.g., AMR annotations)
+                continue
 
         # PropBankAnnotation expects a single Rel, not a list
         # Handle missing rel element (some annotations don't have it)
@@ -486,6 +491,52 @@ class PropBankConverter:
 
         return Frameset(predicate_lemma=predicate_lemma, rolesets=rolesets, notes=notes)
 
+    def convert_combined_frameset_file(self, filepath: Path | str) -> list[Frameset]:
+        """Convert a combined frameset XML file with multiple predicates.
+
+        Handles files like AMR-UMR-91-rolesets.xml where a single <frameset>
+        root contains multiple <predicate> children.
+
+        Parameters
+        ----------
+        filepath : Path | str
+            Path to combined frameset XML file.
+
+        Returns
+        -------
+        list[Frameset]
+            List of parsed Frameset model instances, one per predicate.
+        """
+        filepath = Path(filepath)
+        xml_content = filepath.read_text(encoding="utf-8")
+        xml_content = self._fix_xml_errors(xml_content, filepath)
+
+        tree = etree.parse(BytesIO(xml_content.encode("utf-8")))
+        root = tree.getroot()
+
+        framesets: list[Frameset] = []
+        for predicate_elem in root.findall("predicate"):
+            predicate_lemma = predicate_elem.get("lemma", "")
+
+            rolesets = []
+            for roleset in predicate_elem.findall("roleset"):
+                try:
+                    rolesets.append(self._parse_roleset(roleset))
+                except (ValidationError, ValueError, TypeError):
+                    # Skip rolesets with non-standard values (e.g., AMR-specific types)
+                    continue
+
+            notes = []
+            for note in predicate_elem.findall("note"):
+                if note.text:
+                    notes.append(note.text)
+
+            framesets.append(
+                Frameset(predicate_lemma=predicate_lemma, rolesets=rolesets, notes=notes)
+            )
+
+        return framesets
+
     def convert_framesets_directory(
         self,
         input_dir: Path | str,
@@ -493,6 +544,9 @@ class PropBankConverter:
         pattern: str = "*.xml",
     ) -> int:
         """Convert all frameset files in a directory to JSON Lines.
+
+        Also processes combined frameset files (e.g., AMR-UMR-91-rolesets.xml)
+        found in the parent directory.
 
         Parameters
         ----------
@@ -525,15 +579,27 @@ class PropBankConverter:
         errors: list[tuple[Path, Exception]] = []
 
         with output_file.open("w", encoding="utf-8") as f:
+            # Convert individual frameset files
             for xml_file in sorted(input_dir.glob(pattern)):
                 try:
                     frameset = self.convert_frameset_file(xml_file)
-                    # Write as JSON Lines
                     json_line = frameset.model_dump_json(exclude_none=True)
                     f.write(json_line + "\n")
                     count += 1
                 except (etree.XMLSyntaxError, ValueError, TypeError) as e:
                     errors.append((xml_file, e))
+
+            # Also process combined frameset files in parent directory
+            amr_file = input_dir.parent / "AMR-UMR-91-rolesets.xml"
+            if amr_file.exists():
+                try:
+                    amr_framesets = self.convert_combined_frameset_file(amr_file)
+                    for frameset in amr_framesets:
+                        json_line = frameset.model_dump_json(exclude_none=True)
+                        f.write(json_line + "\n")
+                        count += 1
+                except (etree.XMLSyntaxError, ValueError, TypeError) as e:
+                    errors.append((amr_file, e))
 
         # If there were any errors, raise an exception with details
         if errors:
