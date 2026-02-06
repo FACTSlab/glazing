@@ -7,16 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-02-06
+
+### Added
+
+- **PyPI publish workflow** triggered on tag creation using trusted publishers (OIDC)
+- **Converter-to-loader round-trip integration tests** for all four resources
+- **FrameNet frame relation, LU enrichment, semantic type, and fulltext parsing** in converter and loader
+- **Supplementary data conversion** for WordNet senses/exceptions and FrameNet semantic types/fulltext in `initialize.py`
+
+### Changed
+
+- **Rewrote WordNet converter and loader** to use enriched single-file JSONL output with supplementary sense and exception files
+- **Relaxed lemma validation** to allow uppercase letters, digits at the start, and dots (supporting proper nouns, abbreviations, and numeric prefixes)
+- **Moved repository** from `aaronstevenwhite/glazing` to `factslab/glazing`
+
+### Fixed
+
+- **VerbNet converter** now populates `framenet_mappings` and `propbank_mappings` from member attributes
+- **PropBank converter** now handles AMR-UMR-91 roleset conversion and XML edge cases
+
 ## [0.2.1] - 2025-10-28
 
 ### Fixed
 
-- **FrameNet lexical units now properly loaded during conversion**
-  - Lexical units are now parsed from `luIndex.xml` during frame conversion
-  - All frames now include their associated lexical units with complete metadata
-  - Fixes critical data completeness issue where `frame.lexical_units` was always empty
-  - Enables querying frames by lexical unit name via the frame index
-  - Approximately 13,500 lexical units now correctly associated with their frames
+- **FrameNet converter** now properly loads lexical units from `luIndex.xml` during frame conversion, fixing a critical issue where `frame.lexical_units` was always empty (~13,500 LUs now correctly associated)
 
 ## [0.2.0] - 2025-09-30
 
@@ -197,8 +212,9 @@ Initial release of `glazing`, a package containing unified data models and inter
 - `tqdm >= 4.60.0` (progress bars)
 - `rich >= 13.0.0` (CLI formatting)
 
-[Unreleased]: https://github.com/aaronstevenwhite/glazing/compare/v0.2.1...HEAD
-[0.2.1]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.2.1
-[0.2.0]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.2.0
-[0.1.1]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.1.1
-[0.1.0]: https://github.com/aaronstevenwhite/glazing/releases/tag/v0.1.0
+[Unreleased]: https://github.com/factslab/glazing/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/factslab/glazing/releases/tag/v0.2.2
+[0.2.1]: https://github.com/factslab/glazing/releases/tag/v0.2.1
+[0.2.0]: https://github.com/factslab/glazing/releases/tag/v0.2.0
+[0.1.1]: https://github.com/factslab/glazing/releases/tag/v0.1.1
+[0.1.0]: https://github.com/factslab/glazing/releases/tag/v0.1.0

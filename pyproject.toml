@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glazing"
-version = "0.2.1"
+version = "0.2.2"
 description = "Unified data models and interfaces for syntactic and semantic frame ontologies"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -60,9 +60,9 @@ docs = [
 glazing = "glazing.cli:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/aaronstevenwhite/glazing"
-"Bug Reports" = "https://github.com/aaronstevenwhite/glazing/issues"
-"Source" = "https://github.com/aaronstevenwhite/glazing"
+"Homepage" = "https://github.com/factslab/glazing"
+"Bug Reports" = "https://github.com/factslab/glazing/issues"
+"Source" = "https://github.com/factslab/glazing"
 "Documentation" = "https://glazing.readthedocs.io"
 
 [tool.setuptools.packages.find]

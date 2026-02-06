@@ -23,7 +23,7 @@ cd glazing
 3. Add the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/aaronstevenwhite/glazing.git
+git remote add upstream https://github.com/factslab/glazing.git
 ```
 
 ### Development Setup
@@ -245,7 +245,7 @@ Check the issue tracker for `enhancement` labels. Feel free to discuss implement
 
 Contributors are recognized in:
 
-- The project's [CHANGELOG.md](https://github.com/aaronstevenwhite/glazing/blob/main/CHANGELOG.md)
+- The project's [CHANGELOG.md](https://github.com/factslab/glazing/blob/main/CHANGELOG.md)
 - GitHub's contributor graph
 - Special mentions for significant contributions
 

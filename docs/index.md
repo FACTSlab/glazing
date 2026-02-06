@@ -2,8 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/glazing)](https://pypi.org/project/glazing/)
 [![Python versions](https://img.shields.io/pypi/pyversions/glazing)](https://pypi.org/project/glazing/)
-[![License](https://img.shields.io/pypi/l/glazing)](https://github.com/aaronstevenwhite/glazing/blob/main/LICENSE)
-[![CI](https://github.com/aaronstevenwhite/glazing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aaronstevenwhite/glazing/actions/workflows/ci.yml)
+[![License](https://img.shields.io/pypi/l/glazing)](https://github.com/factslab/glazing/blob/main/LICENSE)
+[![CI](https://github.com/factslab/glazing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/factslab/glazing/actions/workflows/ci.yml)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17467082.svg)](https://doi.org/10.5281/zenodo.17467082)
 
 Unified data models and interfaces for syntactic and semantic frame ontologies.
@@ -74,14 +74,14 @@ Glazing is actively maintained and welcomes contributions. The project follows s
 
 ## Links
 
-- [GitHub Repository](https://github.com/aaronstevenwhite/glazing)
+- [GitHub Repository](https://github.com/factslab/glazing)
 - [PyPI Package](https://pypi.org/project/glazing/)
-- [Issue Tracker](https://github.com/aaronstevenwhite/glazing/issues)
-- [Changelog](https://github.com/aaronstevenwhite/glazing/blob/main/CHANGELOG.md)
+- [Issue Tracker](https://github.com/factslab/glazing/issues)
+- [Changelog](https://github.com/factslab/glazing/blob/main/CHANGELOG.md)
 
 ## License
 
-This package is licensed under an MIT License. See [LICENSE](https://github.com/aaronstevenwhite/glazing/blob/main/LICENSE) file for details.
+This package is licensed under an MIT License. See [LICENSE](https://github.com/factslab/glazing/blob/main/LICENSE) file for details.
 
 ## Citation
 
@@ -92,8 +92,8 @@ If you use Glazing in your research, please cite:
   author = {White, Aaron Steven},
   title = {Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies},
   year = {2025},
-  url = {https://github.com/aaronstevenwhite/glazing},
-  version = {0.2.1},
+  url = {https://github.com/factslab/glazing},
+  version = {0.2.2},
   doi = {10.5281/zenodo.17467082}
 }
 ```

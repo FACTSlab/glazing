@@ -22,7 +22,7 @@ pip install glazing
 To install the latest development version:
 
 ```bash
-git clone https://github.com/aaronstevenwhite/glazing.git
+git clone https://github.com/factslab/glazing.git
 cd glazing
 pip install -e .
 ```
@@ -149,7 +149,7 @@ Glazing provides a Docker image for containerized usage, allowing you to use the
 Clone the repository and build the image:
 
 ```bash
-git clone https://github.com/aaronstevenwhite/glazing.git
+git clone https://github.com/factslab/glazing.git
 cd glazing
 docker build -t glazing:latest .
 ```
