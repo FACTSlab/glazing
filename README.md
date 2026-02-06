@@ -5,7 +5,7 @@
 [![CI](https://github.com/factslab/glazing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/factslab/glazing/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/glazing/badge/?version=latest)](https://glazing.readthedocs.io/en/latest/?badge=latest)
 [![License](https://img.shields.io/pypi/l/glazing)](https://github.com/factslab/glazing/blob/main/LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17467082.svg)](https://doi.org/10.5281/zenodo.17467082)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17185625.svg)](https://doi.org/10.5281/zenodo.17185625)
 
 Unified data models and interfaces for syntactic and semantic frame ontologies.
 
@@ -186,7 +186,7 @@ If you use Glazing in your research, please cite:
   title = {Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies},
   year = {2025},
   url = {https://github.com/factslab/glazing},
-  doi = {10.5281/zenodo.17467082}
+  doi = {10.5281/zenodo.17185625}
 }
 ```
 
