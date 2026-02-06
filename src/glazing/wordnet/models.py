@@ -106,7 +106,7 @@ class Word(GlazingBaseModel):
             If lemma format is invalid.
         """
         if not re.match(LEMMA_PATTERN, v):
-            msg = f"Invalid lemma format: {v}"
+            msg = f"Invalid lemma format: {v!r}"
             raise ValueError(msg)
         return v
 

@@ -57,7 +57,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from glazing.propbank.models import LexLink, RoleLink
-from glazing.types import DatasetType, MappingSource
+from glazing.types import LEMMA_PATTERN, DatasetType, MappingSource
 from glazing.wordnet.models import Sense, WordNetCrossRef
 from glazing.wordnet.types import SynsetOffset
 
@@ -584,8 +584,8 @@ class UnifiedLemma(BaseModel):
         ValueError
             If lemma format is invalid.
         """
-        if not re.match(r"^[a-z][a-z0-9_\'-]*$", v):
-            msg = f"Invalid lemma format: {v}"
+        if not re.match(LEMMA_PATTERN, v):
+            msg = f"Invalid lemma format: {v!r}"
             raise ValueError(msg)
         return v
 

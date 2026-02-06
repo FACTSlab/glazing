@@ -385,11 +385,14 @@ class TestValidators:
         assert validate_lemma("abandon") == "abandon"
         assert validate_lemma("spray_paint") == "spray_paint"
         assert validate_lemma("don't") == "don't"
+        assert validate_lemma("Abandon") == "Abandon"  # Uppercase allowed
+        assert validate_lemma("123abandon") == "123abandon"  # Digit start allowed
+        assert validate_lemma("Dr.") == "Dr."  # Dots allowed
 
         with pytest.raises(ValueError):
-            validate_lemma("Abandon")  # Uppercase
+            validate_lemma("")  # Empty
         with pytest.raises(ValueError):
-            validate_lemma("123abandon")  # Starts with number
+            validate_lemma(" abandon")  # Leading space
 
     def test_validate_hex_color(self):
         """Test hex color validation."""

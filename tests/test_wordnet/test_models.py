@@ -34,12 +34,15 @@ class TestWord:
         Word(lemma="dog", lex_id=0)
         Word(lemma="run_up", lex_id=1)
         Word(lemma="mother-in-law", lex_id=0)
+        Word(lemma="Dog", lex_id=0)  # Uppercase allowed (proper nouns)
+        Word(lemma="Dr.", lex_id=0)  # Dots allowed (abbreviations)
+        Word(lemma="123dog", lex_id=0)  # Digit start allowed
 
         # Invalid lemmas
         with pytest.raises(ValidationError):
-            Word(lemma="Dog", lex_id=0)  # Capital letter
+            Word(lemma="", lex_id=0)  # Empty
         with pytest.raises(ValidationError):
-            Word(lemma="123dog", lex_id=0)  # Number start
+            Word(lemma=" dog", lex_id=0)  # Leading space
 
     def test_word_lex_id_validation(self):
         """Test lex_id range validation."""
