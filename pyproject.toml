@@ -136,7 +136,7 @@ ignore = [
 "src/glazing/utils/xml_parser.py" = ["S320"]
 "src/glazing/wordnet/converter.py" = ["C901", "PLR0912", "PLR0915"]
 "src/glazing/wordnet/loader.py" = ["C901", "PLR0912"]
-"src/glazing/verbnet/converter.py" = ["C901", "S320"]
+"src/glazing/verbnet/converter.py" = ["C901", "S320", "PLR0912"]
 "src/glazing/framenet/converter.py" = ["S320", "C901", "PLR0912", "PLR0915"]
 "src/glazing/propbank/converter.py" = ["S320"]
 
