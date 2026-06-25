@@ -274,20 +274,16 @@ class FrameNetConverter:
         tuple[list[str], list[str]]
             Requires and excludes lists.
         """
-        requires_fe = []
-        excludes_fe = []
-
-        requires_elem = fe_elem.find(
-            f"{{{self.namespace}}}requiresFE" if self.namespace else "requiresFE"
-        )
-        if requires_elem is not None:
-            requires_fe = [req.get("name", "") for req in requires_elem]
-
-        excludes_elem = fe_elem.find(
-            f"{{{self.namespace}}}excludesFE" if self.namespace else "excludesFE"
-        )
-        if excludes_elem is not None:
-            excludes_fe = [exc.get("name", "") for exc in excludes_elem]
+        # FrameNet frame XML carries each constraint as a self-closing sibling
+        # of <FE>, e.g. <requiresFE name="Partner_2" ID="488"/>. There can be
+        # several of each, and the target FE name lives in the ``name``
+        # attribute, not in a child element. Collect every matching sibling.
+        requires_fe = [
+            name for req in fe_elem.findall(self._tag("requiresFE")) if (name := req.get("name"))
+        ]
+        excludes_fe = [
+            name for exc in fe_elem.findall(self._tag("excludesFE")) if (name := exc.get("name"))
+        ]
 
         return requires_fe, excludes_fe
 
