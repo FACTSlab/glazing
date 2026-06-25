@@ -14,6 +14,7 @@ from glazing.wordnet.converter import (
     parse_index_file,
     parse_sense_index,
 )
+from glazing.wordnet.models import Synset
 
 
 class TestWordNetConverter:
@@ -302,12 +303,92 @@ women woman
         assert not converter._is_valid_word_form("invalid@")
 
     def test_lex_file_names_mapping(self, converter):
-        """Test lexical file name mapping."""
-        assert converter.LEX_FILE_NAMES[0] == "adj.all"
-        assert converter.LEX_FILE_NAMES[4] == "noun.Tops"
-        assert converter.LEX_FILE_NAMES[29] == "noun.time"
-        assert converter.LEX_FILE_NAMES[30] == "verb.body"
-        assert converter.LEX_FILE_NAMES[44] == "verb.weather"
+        """Test lexical file name mapping matches the canonical lexnames table.
+
+        Regression test for the lex_filename/lex_filenum mismatch (issue #9):
+        adv.all is index 2 (not adj.ppl) and adj.ppl is the final entry at 44.
+        """
+        # Canonical WordNet lexnames table (wndb(5)).
+        canonical = {
+            0: "adj.all",
+            1: "adj.pert",
+            2: "adv.all",
+            3: "noun.Tops",
+            4: "noun.act",
+            5: "noun.animal",
+            6: "noun.artifact",
+            7: "noun.attribute",
+            8: "noun.body",
+            9: "noun.cognition",
+            10: "noun.communication",
+            11: "noun.event",
+            12: "noun.feeling",
+            13: "noun.food",
+            14: "noun.group",
+            15: "noun.location",
+            16: "noun.motive",
+            17: "noun.object",
+            18: "noun.person",
+            19: "noun.phenomenon",
+            20: "noun.plant",
+            21: "noun.possession",
+            22: "noun.process",
+            23: "noun.quantity",
+            24: "noun.relation",
+            25: "noun.shape",
+            26: "noun.state",
+            27: "noun.substance",
+            28: "noun.time",
+            29: "verb.body",
+            30: "verb.change",
+            31: "verb.cognition",
+            32: "verb.communication",
+            33: "verb.competition",
+            34: "verb.consumption",
+            35: "verb.contact",
+            36: "verb.creation",
+            37: "verb.emotion",
+            38: "verb.motion",
+            39: "verb.perception",
+            40: "verb.possession",
+            41: "verb.social",
+            42: "verb.stative",
+            43: "verb.weather",
+            44: "adj.ppl",
+        }
+        assert canonical == converter.LEX_FILE_NAMES
+
+        # The POS prefix of each lex file name must agree with the synset type
+        # it can belong to. A noun lex_filenum must map to a noun.* name, etc.
+        assert converter.LEX_FILE_NAMES[3].startswith("noun.")
+        assert converter.LEX_FILE_NAMES[29].startswith("verb.")
+        assert converter.LEX_FILE_NAMES[2].startswith("adv.")
+        assert converter.LEX_FILE_NAMES[44].startswith("adj.")
+
+    @pytest.mark.parametrize(
+        ("lex_filenum", "ss_type", "expected_name"),
+        [
+            (3, "n", "noun.Tops"),  # previously mislabeled "adv.all"
+            (28, "n", "noun.time"),
+            (29, "v", "verb.body"),  # previously mislabeled "noun.time"
+            (43, "v", "verb.weather"),
+            (0, "a", "adj.all"),
+            (44, "a", "adj.ppl"),  # previously mislabeled "verb.weather"
+            (2, "r", "adv.all"),  # previously mislabeled "adj.ppl"
+        ],
+    )
+    def test_parsed_synset_lex_filename_matches_filenum(
+        self, converter, lex_filenum, ss_type, expected_name
+    ):
+        """Parsed synsets derive lex_filename consistently from lex_filenum."""
+        line = f"00001740 {lex_filenum:02d} {ss_type} 01 word 0 000 | a gloss"
+        synset = converter._parse_data_line(line)
+        assert synset is not None
+        assert synset.lex_filenum == lex_filenum
+        assert synset.lex_filename == expected_name
+        # The lex file name's POS prefix must be consistent with the synset type.
+        pos_prefix = {"n": "noun.", "v": "verb.", "r": "adv.", "a": "adj.", "s": "adj."}
+        assert synset.lex_filename.startswith(pos_prefix[ss_type])
 
     def test_parse_data_file_empty_lines(self, converter, tmp_path):
         """Test data file parsing handles empty lines and comments."""
@@ -333,6 +414,95 @@ women woman
         assert len(synsets) == 1
         assert "perceived" in synsets[0].gloss
         assert "nonliving" in synsets[0].gloss
+
+
+class TestAdjectiveSyntacticMarkers:
+    """Test adjective syntactic-position marker parsing (issue #8)."""
+
+    @pytest.fixture
+    def converter(self):
+        """Create WordNet converter instance."""
+        return WordNetConverter()
+
+    @pytest.mark.parametrize(
+        ("token", "expected"),
+        [
+            ("galore(ip)", ("galore", "ip")),
+            ("outback(a)", ("outback", "a")),
+            ("ready_to_hand(p)", ("ready_to_hand", "p")),
+            ("out_of_reach(p)", ("out_of_reach", "p")),
+            ("dead-on(a)", ("dead-on", "a")),
+            # No marker: returned unchanged with None.
+            ("plain", ("plain", None)),
+            ("by-the-way", ("by-the-way", None)),
+            ("mother-in-law", ("mother-in-law", None)),
+            # Parenthetical that is not a valid marker must not be stripped.
+            ("foo(x)", ("foo(x)", None)),
+            ("note(2)", ("note(2)", None)),
+        ],
+    )
+    def test_split_adj_marker(self, converter, token, expected):
+        """Markers are split off; non-marker tokens are left intact."""
+        assert converter._split_adj_marker(token) == expected
+
+    def test_marker_bearing_synset_is_retained(self, converter):
+        """A satellite adjective synset with a marker is no longer dropped.
+
+        Before the fix the marker stayed on the lemma, failed lemma validation,
+        and the entire synset was silently discarded.
+        """
+        line = (
+            "00014377 00 s 02 abounding 0 galore(ip) 0 001 "
+            "& 00013906 a 0000 | existing in abundance"
+        )
+        synset = converter._parse_data_line(line)
+        assert synset is not None
+        markers = {w.lemma: w.syntactic_marker for w in synset.words}
+        assert markers == {"abounding": None, "galore": "ip"}
+
+    def test_all_marker_variants_in_data_file(self, converter, tmp_path):
+        """Parse a data.adj file exercising each marker type."""
+        content = (
+            "00020141 00 s 02 outback(a) 0 remote 0 000 | inaccessible\n"
+            "00019769 00 s 02 handy 0 ready_to_hand(p) 0 000 | easy to reach\n"
+            "00014377 00 s 02 abounding 0 galore(ip) 0 000 | in abundance\n"
+            "00001740 00 a 01 able 0 000 | having the means\n"
+        )
+        data_file = tmp_path / "data.adj"
+        data_file.write_text(content, encoding="utf-8")
+
+        synsets = converter.parse_data_file(data_file, "a") + converter.parse_data_file(
+            data_file, "s"
+        )
+        # All four synsets survive parsing.
+        assert len(synsets) == 4
+
+        markers = {w.lemma: w.syntactic_marker for synset in synsets for w in synset.words}
+        assert markers["outback"] == "a"
+        assert markers["ready_to_hand"] == "p"
+        assert markers["galore"] == "ip"
+        # Words without a marker carry None.
+        assert markers["remote"] is None
+        assert markers["handy"] is None
+        assert markers["able"] is None
+
+    def test_marker_survives_json_round_trip(self, converter):
+        """The syntactic_marker field round-trips through JSON serialization."""
+        line = "00020141 00 s 01 outback(a) 0 000 | inaccessible"
+        synset = converter._parse_data_line(line)
+        assert synset is not None
+
+        dumped = synset.model_dump_json()
+        restored = Synset.model_validate_json(dumped)
+        assert restored.words[0].lemma == "outback"
+        assert restored.words[0].syntactic_marker == "a"
+
+    def test_non_adjective_words_have_no_marker(self, converter):
+        """Nouns and verbs never carry a syntactic marker."""
+        line = "00001740 29 v 01 breathe 0 000 | take air"
+        synset = converter._parse_data_line(line)
+        assert synset is not None
+        assert synset.words[0].syntactic_marker is None
 
 
 class TestWordNetConverterFunctions:

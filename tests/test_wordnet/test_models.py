@@ -56,6 +56,20 @@ class TestWord:
         with pytest.raises(ValidationError):
             Word(lemma="dog", lex_id=16)
 
+    def test_word_syntactic_marker(self):
+        """Test the adjective syntactic-position marker field (issue #8)."""
+        # Defaults to None for words without a marker.
+        assert Word(lemma="dog", lex_id=0).syntactic_marker is None
+
+        # Accepts each valid AdjPosition value.
+        for marker in ("p", "a", "ip"):
+            word = Word(lemma="able", lex_id=0, syntactic_marker=marker)
+            assert word.syntactic_marker == marker
+
+        # Rejects values outside the AdjPosition literal.
+        with pytest.raises(ValidationError):
+            Word(lemma="able", lex_id=0, syntactic_marker="x")
+
 
 class TestPointer:
     """Test Pointer model."""

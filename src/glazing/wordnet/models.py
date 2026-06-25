@@ -45,6 +45,7 @@ from pydantic import Field, field_validator
 from glazing.base import GlazingBaseModel
 from glazing.types import LEMMA_PATTERN
 from glazing.wordnet.types import (
+    AdjPosition,
     LexFileName,
     LexID,
     PointerSymbol,
@@ -70,6 +71,10 @@ class Word(GlazingBaseModel):
         Frequency-based sense ordering from index.sense.
     tag_count : int, default=0
         Semantic concordance tag count.
+    syntactic_marker : AdjPosition | None, default=None
+        Adjective syntactic-position marker from wndb(5): ``p`` (predicative),
+        ``a`` (attributive/prenominal), or ``ip`` (immediately postnominal).
+        Only adjectives carry a marker; ``None`` for all other parts of speech.
 
     Examples
     --------
@@ -78,12 +83,17 @@ class Word(GlazingBaseModel):
     'dog'
     >>> word.lex_id
     0
+    >>> Word(lemma="galore", lex_id=0, syntactic_marker="ip").syntactic_marker
+    'ip'
     """
 
     lemma: str = Field(description="Word form (lowercase, underscores for spaces)")
     lex_id: LexID = Field(description="Lexical ID distinguishing same word in synset")
     sense_number: int | None = Field(default=None, description="Frequency-based sense ordering")
     tag_count: int = Field(default=0, ge=0, description="Semantic concordance tag count")
+    syntactic_marker: AdjPosition | None = Field(
+        default=None, description="Adjective syntactic-position marker (p/a/ip)"
+    )
 
     @field_validator("lemma")
     @classmethod
