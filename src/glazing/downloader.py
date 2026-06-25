@@ -617,17 +617,15 @@ def get_downloader(dataset: DatasetType | str) -> BaseDownloader:
     >>> print(downloader.version)
     3.4
     """
-    # Normalize to lowercase for case-insensitive lookup
-    dataset_lower = dataset.lower()
-
-    if dataset_lower not in _DOWNLOADERS:
+    # Normalize to lowercase for case-insensitive lookup. The cast narrows the
+    # plain ``str`` to the key type for the lookup; ``.get`` still returns None
+    # for any unsupported name, so the cast never asserts a false membership.
+    dataset_lower = cast(DatasetType, dataset.lower())
+    downloader_class = _DOWNLOADERS.get(dataset_lower)
+    if downloader_class is None:
         supported = ", ".join(_DOWNLOADERS.keys())
         msg = f"Unsupported dataset: {dataset}. Supported: {supported}"
         raise ValueError(msg)
-
-    # Cast to DatasetType for type checking
-    dataset_typed = cast(DatasetType, dataset_lower)
-    downloader_class = _DOWNLOADERS[dataset_typed]
     return downloader_class()
 
 
