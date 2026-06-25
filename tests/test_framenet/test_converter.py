@@ -336,3 +336,104 @@ class TestLexicalUnitParsing:
         assert data["id"] == 100
         assert "lexical_units" in data
         assert len(data["lexical_units"]) == 0
+
+
+class TestFEConstraints:
+    """Test FE Requires/Excludes constraint parsing (issue #7)."""
+
+    # Frame XML in the FrameNet default namespace, mirroring the real
+    # Personal_relationship frame: requiresFE/excludesFE are self-closing
+    # siblings of <FE> whose target name lives in the ``name`` attribute.
+    FRAME_XML = """<?xml version="1.0" encoding="UTF-8"?>
+    <frame cBy="JKR" cDate="04/30/2001 12:55:11 PDT Mon" name="Personal_relationship" ID="102"
+           xmlns="http://framenet.icsi.berkeley.edu">
+        <definition>A frame about relationships.</definition>
+        <FE bgColor="FF0000" fgColor="FFFFFF" coreType="Core" abbrev="Partner_1"
+            name="Partner_1" ID="486">
+            <definition>The first partner.</definition>
+            <requiresFE name="Partner_2" ID="488"/>
+            <excludesFE name="Partners" ID="489"/>
+        </FE>
+        <FE bgColor="FF0000" fgColor="FFFFFF" coreType="Core" abbrev="Partner_2"
+            name="Partner_2" ID="488">
+            <definition>The second partner.</definition>
+            <requiresFE name="Partner_1" ID="487"/>
+            <excludesFE name="Partners" ID="489"/>
+        </FE>
+        <FE bgColor="800080" fgColor="FFFFFF" coreType="Core" abbrev="Partners"
+            name="Partners" ID="489">
+            <definition>Both partners together.</definition>
+            <excludesFE name="Partner_1" ID="490"/>
+            <excludesFE name="Partner_2" ID="491"/>
+        </FE>
+        <FE bgColor="0000FF" fgColor="FFFFFF" coreType="Peripheral" abbrev="Time"
+            name="Time" ID="492">
+            <definition>When the relationship holds.</definition>
+        </FE>
+    </frame>"""
+
+    @pytest.fixture
+    def frame_file(self, tmp_path):
+        """Write the constraint-bearing frame XML to a temp file."""
+        path = tmp_path / "Personal_relationship.xml"
+        path.write_text(self.FRAME_XML, encoding="utf-8")
+        return path
+
+    def test_requires_and_excludes_populated(self, frame_file):
+        """requiresFE/excludesFE names are captured from the ``name`` attribute."""
+        converter = FrameNetConverter()
+        frame = converter.convert_frame_file(frame_file)
+        by_name = {fe.name: fe for fe in frame.frame_elements}
+
+        assert by_name["Partner_1"].requires_fe == ["Partner_2"]
+        assert by_name["Partner_1"].excludes_fe == ["Partners"]
+        assert by_name["Partner_2"].requires_fe == ["Partner_1"]
+        assert by_name["Partner_2"].excludes_fe == ["Partners"]
+
+    def test_multiple_excludes_on_one_fe(self, frame_file):
+        """An FE with several <excludesFE> siblings keeps all of them."""
+        converter = FrameNetConverter()
+        frame = converter.convert_frame_file(frame_file)
+        partners = next(fe for fe in frame.frame_elements if fe.name == "Partners")
+
+        assert partners.excludes_fe == ["Partner_1", "Partner_2"]
+        assert partners.requires_fe == []
+
+    def test_fe_without_constraints_is_empty(self, frame_file):
+        """An FE with no constraint elements yields empty lists, not None."""
+        converter = FrameNetConverter()
+        frame = converter.convert_frame_file(frame_file)
+        time_fe = next(fe for fe in frame.frame_elements if fe.name == "Time")
+
+        assert time_fe.requires_fe == []
+        assert time_fe.excludes_fe == []
+
+    def test_constraints_survive_json_round_trip(self, tmp_path, frame_file):
+        """Constraints are present in the serialized JSONL output."""
+        converter = FrameNetConverter()
+        output_file = tmp_path / "frames.jsonl"
+        converter.convert_frames_directory(frame_file.parent, output_file)
+
+        with output_file.open("r", encoding="utf-8") as f:
+            data = json.loads(f.readline())
+
+        by_name = {fe["name"]: fe for fe in data["frame_elements"]}
+        assert by_name["Partner_1"]["requires_fe"] == ["Partner_2"]
+        assert by_name["Partner_1"]["excludes_fe"] == ["Partners"]
+        assert by_name["Partners"]["excludes_fe"] == ["Partner_1", "Partner_2"]
+
+    def test_real_personal_relationship_frame(self):
+        """Cross-check against the real FN 1.7 frame file if available."""
+        frame_path = Path("framenet_v17/frame/Personal_relationship.xml")
+        if not frame_path.exists():
+            pytest.skip("Real FrameNet data not available")
+
+        converter = FrameNetConverter()
+        frame = converter.convert_frame_file(frame_path)
+        by_name = {fe.name: fe for fe in frame.frame_elements}
+
+        # At least one FE must carry a non-empty constraint list.
+        assert any(fe.requires_fe for fe in frame.frame_elements)
+        assert any(fe.excludes_fe for fe in frame.frame_elements)
+        assert by_name["Partner_1"].requires_fe == ["Partner_2"]
+        assert "Partners" in by_name["Partner_1"].excludes_fe

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glazing"
-version = "0.2.2"
+version = "0.2.3"
 description = "Unified data models and interfaces for syntactic and semantic frame ontologies"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -38,7 +38,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.9",
-    "mypy>=1.8.0",
+    # Pinned: --strict behavior changes between minor releases, so an unpinned
+    # spec lets CI and local environments drift (and CI's Type Check fail on
+    # code that passes locally). Bump deliberately.
+    "mypy==2.1.0",
     "pytest>=7.4.3",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.1",

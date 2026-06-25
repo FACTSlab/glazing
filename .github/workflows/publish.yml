@@ -1,4 +1,14 @@
-name: Publish to PyPI
+name: Release
+
+# Publishes a release to PyPI using OIDC trusted publishing (no API tokens)
+# and creates a matching GitHub Release. Triggered by pushing a version tag,
+# e.g. `git tag v0.2.3 && git push origin v0.2.3`.
+#
+# Required one-time configuration (repository settings):
+#   - PyPI trusted publisher: project `glazing`, owner `factslab`,
+#     repository `glazing`, workflow `publish.yml`, environment `pypi`.
+#   - GitHub environment `pypi` (optionally with required reviewers / tag
+#     protection rules) that gates the publish job.
 
 on:
   push:
@@ -23,10 +33,13 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build twine
 
       - name: Build distribution
         run: python -m build
+
+      - name: Check distribution
+        run: twine check dist/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -34,11 +47,13 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  publish-pypi:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
+    environment:
+      name: pypi
+      url: https://pypi.org/p/glazing
     permissions:
       id-token: write
     steps:
@@ -50,3 +65,26 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub Release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          --repo "${{ github.repository }}"
+          --title "${{ github.ref_name }}"
+          --generate-notes
+          dist/*

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-06-25
+
+### Added
+
+- **WordNet adjective syntactic-position markers** (`p` predicative, `a` attributive, `ip` immediately postnominal) are now parsed off adjective words into the new `Word.syntactic_marker` field (#8)
+
+### Fixed
+
+- **WordNet synset `lex_filename`** now derives from the canonical WordNet `lexnames` lexicographer-file table; previously every entry from index 2 onward was shifted, so e.g. `lex_filenum=29` (`verb.body`) was mislabeled `noun.time` and `lex_filenum=3` (`noun.Tops`) was mislabeled `adv.all` (#9)
+- **WordNet adjective synsets carrying a syntactic marker** are no longer silently dropped during conversion; the parenthesized marker previously stayed on the lemma, failed lemma validation, and discarded the entire synset (#8)
+- **FrameNet FE Requires/Excludes constraints** now populate `FrameElement.requires_fe` and `FrameElement.excludes_fe`; the converter previously read the (nonexistent) child elements of the first `<requiresFE>`/`<excludesFE>` tag rather than the `name` attribute of each sibling, so the lists were always empty (#7)
+
 ## [0.2.2] - 2026-02-06
 
 ### Added

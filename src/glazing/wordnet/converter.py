@@ -50,11 +50,16 @@ from glazing.wordnet.models import (
     Word,
 )
 from glazing.wordnet.types import (
+    AdjPosition,
     LexFileName,
     PointerSymbol,
     VerbFrameNumber,
     WordNetPOS,
 )
+
+# Adjective syntactic-position markers appended to words in adjective data files,
+# e.g. "galore(ip)" -> ("galore", "ip"). See wndb(5) / wninput(5).
+ADJ_MARKER_RE = re.compile(r"^(?P<lemma>.+)\((?P<marker>ip|a|p)\)$")
 
 
 class WordNetConverter:
@@ -77,53 +82,57 @@ class WordNetConverter:
         Convert entire WordNet database to JSON Lines.
     """
 
-    # Mapping from lexical file numbers to names
+    # Mapping from lexical file numbers to names.
+    #
+    # This follows the canonical WordNet ``lexnames`` lexicographer-file table
+    # (see wndb(5)). Note that ``adv.all`` is index 2 and ``adj.ppl`` is the
+    # final entry at index 44 -- the order is *not* a simple POS grouping.
     LEX_FILE_NAMES: ClassVar[dict[int, LexFileName]] = {
         0: "adj.all",
         1: "adj.pert",
-        2: "adj.ppl",
-        3: "adv.all",
-        4: "noun.Tops",
-        5: "noun.act",
-        6: "noun.animal",
-        7: "noun.artifact",
-        8: "noun.attribute",
-        9: "noun.body",
-        10: "noun.cognition",
-        11: "noun.communication",
-        12: "noun.event",
-        13: "noun.feeling",
-        14: "noun.food",
-        15: "noun.group",
-        16: "noun.location",
-        17: "noun.motive",
-        18: "noun.object",
-        19: "noun.person",
-        20: "noun.phenomenon",
-        21: "noun.plant",
-        22: "noun.possession",
-        23: "noun.process",
-        24: "noun.quantity",
-        25: "noun.relation",
-        26: "noun.shape",
-        27: "noun.state",
-        28: "noun.substance",
-        29: "noun.time",
-        30: "verb.body",
-        31: "verb.change",
-        32: "verb.cognition",
-        33: "verb.communication",
-        34: "verb.competition",
-        35: "verb.consumption",
-        36: "verb.contact",
-        37: "verb.creation",
-        38: "verb.emotion",
-        39: "verb.motion",
-        40: "verb.perception",
-        41: "verb.possession",
-        42: "verb.social",
-        43: "verb.stative",
-        44: "verb.weather",
+        2: "adv.all",
+        3: "noun.Tops",
+        4: "noun.act",
+        5: "noun.animal",
+        6: "noun.artifact",
+        7: "noun.attribute",
+        8: "noun.body",
+        9: "noun.cognition",
+        10: "noun.communication",
+        11: "noun.event",
+        12: "noun.feeling",
+        13: "noun.food",
+        14: "noun.group",
+        15: "noun.location",
+        16: "noun.motive",
+        17: "noun.object",
+        18: "noun.person",
+        19: "noun.phenomenon",
+        20: "noun.plant",
+        21: "noun.possession",
+        22: "noun.process",
+        23: "noun.quantity",
+        24: "noun.relation",
+        25: "noun.shape",
+        26: "noun.state",
+        27: "noun.substance",
+        28: "noun.time",
+        29: "verb.body",
+        30: "verb.change",
+        31: "verb.cognition",
+        32: "verb.communication",
+        33: "verb.competition",
+        34: "verb.consumption",
+        35: "verb.contact",
+        36: "verb.creation",
+        37: "verb.emotion",
+        38: "verb.motion",
+        39: "verb.perception",
+        40: "verb.possession",
+        41: "verb.social",
+        42: "verb.stative",
+        43: "verb.weather",
+        44: "adj.ppl",
     }
 
     def parse_data_file(self, filepath: Path | str, pos: WordNetPOS) -> list[Synset]:
@@ -628,6 +637,30 @@ class WordNetConverter:
 
         return len(all_entries)
 
+    @staticmethod
+    def _split_adj_marker(word: str) -> tuple[str, AdjPosition | None]:
+        """Split an adjective syntactic-position marker off a word token.
+
+        In WordNet adjective data files the syntactic marker is appended, in
+        parentheses, directly onto the word with no intervening space -- e.g.
+        ``galore(ip)``, ``outback(a)``, ``ready_to_hand(p)``. See wndb(5).
+
+        Parameters
+        ----------
+        word : str
+            Raw word token from a data file (possibly marker-bearing).
+
+        Returns
+        -------
+        tuple[str, AdjPosition | None]
+            The lemma with the marker stripped, and the marker (``p``/``a``/
+            ``ip``) if present, otherwise ``None``.
+        """
+        match = ADJ_MARKER_RE.match(word)
+        if match is None:
+            return word, None
+        return match.group("lemma"), cast(AdjPosition, match.group("marker"))
+
     def _parse_data_line(self, line: str) -> Synset | None:
         """Parse a line from WordNet data file.
 
@@ -669,9 +702,9 @@ class WordNetConverter:
             for _ in range(w_cnt):
                 if idx + 1 >= len(parts):
                     break
-                lemma = parts[idx]
+                lemma, marker = self._split_adj_marker(parts[idx])
                 lex_id = int(parts[idx + 1], 16)
-                words.append(Word(lemma=lemma, lex_id=lex_id))
+                words.append(Word(lemma=lemma, lex_id=lex_id, syntactic_marker=marker))
                 idx += 2
 
             # Parse pointers
