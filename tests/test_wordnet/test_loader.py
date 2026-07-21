@@ -123,12 +123,12 @@ class TestWordNetLoader:
 
         # Check synsets loaded
         assert len(loader.synsets) == 3
-        assert "00001740" in loader.synsets
-        assert "00001930" in loader.synsets
-        assert "00002325" in loader.synsets
+        assert "00001740n" in loader.synsets
+        assert "00001930n" in loader.synsets
+        assert "00002325v" in loader.synsets
 
         # Check synset content
-        entity = loader.synsets["00001740"]
+        entity = loader.synsets["00001740n"]
         assert entity.ss_type == "n"
         assert len(entity.words) == 1
         assert entity.words[0].lemma == "entity"
@@ -144,14 +144,14 @@ class TestWordNetLoader:
         assert "n" in loader.lemma_index["entity"]
         assert len(loader.lemma_index["entity"]["n"]) == 1
 
-        # lemma_index values are SynsetOffset strings now
-        offset = loader.lemma_index["entity"]["n"][0]
-        assert offset == "00001740"
+        # lemma_index values are canonical SynsetKey strings
+        key = loader.lemma_index["entity"]["n"][0]
+        assert key == "00001740n"
 
         # Check verb lemmas
         assert "run" in loader.lemma_index
         assert "v" in loader.lemma_index["run"]
-        assert loader.lemma_index["run"]["v"][0] == "00002325"
+        assert loader.lemma_index["run"]["v"][0] == "00002325v"
 
         # "go" should also be indexed
         assert "go" in loader.lemma_index
@@ -190,12 +190,12 @@ class TestWordNetLoader:
         loader.load()
 
         # Check hypernym index
-        assert "00001930" in loader.hypernym_index
-        assert "00001740" in loader.hypernym_index["00001930"]
+        assert "00001930n" in loader.hypernym_index
+        assert "00001740n" in loader.hypernym_index["00001930n"]
 
         # Check hyponym index
-        assert "00001740" in loader.hyponym_index
-        assert "00001930" in loader.hyponym_index["00001740"]
+        assert "00001740n" in loader.hyponym_index
+        assert "00001930n" in loader.hyponym_index["00001740n"]
 
     def test_get_synset(self, temp_data_file):
         """Test getting synset by offset."""
@@ -299,7 +299,7 @@ class TestWordNetLoader:
 
         # Check cache is working
         assert loader._cache is not None
-        cached = loader._cache.get("00001740")
+        cached = loader._cache.get("00001740n")
         assert cached is not None
         assert cached.offset == "00001740"
 

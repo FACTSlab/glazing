@@ -55,11 +55,41 @@ from glazing.wordnet.types import (
     PointerSymbol,
     VerbFrameNumber,
     WordNetPOS,
+    normalize_pos,
 )
 
 # Adjective syntactic-position markers appended to words in adjective data files,
 # e.g. "galore(ip)" -> ("galore", "ip"). See wndb(5) / wninput(5).
 ADJ_MARKER_RE = re.compile(r"^(?P<lemma>.+)\((?P<marker>ip|a|p)\)$")
+
+
+def _split_sense_key(sense_key: str) -> tuple[str, int] | None:
+    """Split a sense key into its lemma and synset-type number.
+
+    Sense keys have the form ``lemma%ss_type:lex_filenum:lex_id:head:head_id``,
+    where the trailing head fields are populated only for adjective satellites.
+
+    Parameters
+    ----------
+    sense_key : str
+        Sense key to split (e.g., ``"abandon%2:40:01::"``).
+
+    Returns
+    -------
+    tuple[str, int] | None
+        Lowercased lemma and synset-type number, or None if malformed.
+    """
+    lemma, sep, rest = sense_key.partition("%")
+    if not sep or not lemma:
+        return None
+    fields = rest.split(":")
+    if len(fields) < 3:
+        return None
+    try:
+        ss_type_num = int(fields[0])
+    except ValueError:
+        return None
+    return lemma.lower(), ss_type_num
 
 
 class WordNetConverter:
@@ -143,7 +173,10 @@ class WordNetConverter:
         filepath : Path | str
             Path to WordNet data file (e.g., data.noun).
         pos : WordNetPOS
-            Part of speech for validation.
+            Part of speech for validation. ``"a"`` and ``"s"`` are equivalent:
+            ``data.adj`` holds both adjective heads and satellites, so either
+            value returns all adjective synsets, each retaining its own
+            ``ss_type``.
 
         Returns
         -------
@@ -176,7 +209,7 @@ class WordNetConverter:
 
                 try:
                     synset = self._parse_data_line(line)
-                    if synset and synset.ss_type == pos:
+                    if synset and normalize_pos(synset.ss_type) == normalize_pos(pos):
                         synsets.append(synset)
                 except ValueError as e:
                     # Log parsing error but continue
@@ -490,8 +523,13 @@ class WordNetConverter:
         framestext = self.parse_verb_framestext(wordnet_dir / "verb.Framestext")
         sents = self.parse_verb_sentences(wordnet_dir / "sents.vrb")
 
-        # Build sense_key → (sense_number, tag_count) map from index.sense
-        sense_map: dict[str, tuple[int, int]] = {}
+        # Build (ss_type_num, offset, lemma) → (sense_number, tag_count) from
+        # index.sense. Keying on the synset offset rather than the sense key is
+        # what makes satellites work: a satellite's real sense key carries a
+        # head_word:head_id suffix the data file does not record, and the
+        # head-less prefix is ambiguous (2,966 collisions in WordNet 3.1).
+        sense_map: dict[tuple[int, str, str], tuple[int, int]] = {}
+        key_to_index: dict[str, tuple[int, str, str]] = {}
         sense_index_file = wordnet_dir / "index.sense"
         if sense_index_file.exists():
             with sense_index_file.open("r", encoding="utf-8") as f:
@@ -502,24 +540,31 @@ class WordNetConverter:
                     parts = line.split()
                     if len(parts) != 4:
                         continue
+                    split_key = _split_sense_key(parts[0])
+                    if split_key is None:
+                        continue
+                    lemma, ss_type_num = split_key
                     try:
-                        sk = parts[0]
+                        offset = parts[1].zfill(8)
                         sense_number = int(parts[2])
                         tag_count = int(parts[3])
-                        sense_map[sk] = (sense_number, tag_count)
                     except ValueError:
                         continue
+                    index = (ss_type_num, offset, lemma)
+                    sense_map[index] = (sense_number, tag_count)
+                    key_to_index[parts[0]] = index
 
-        # Parse cntlist to enhance tag_count data
+        # Parse cntlist to enhance tag_count data. cntlist records sense keys
+        # only, so route each count through index.sense to reach its synset;
+        # a key absent from index.sense has no synset to attach to.
         cntlist = self.parse_cntlist(wordnet_dir / "cntlist")
         for sk, count in cntlist.items():
-            if sk in sense_map:
-                sn, _ = sense_map[sk]
-                sense_map[sk] = (sn, count)
-            else:
-                sense_map[sk] = (0, count)
+            cnt_index = key_to_index.get(sk)
+            if cnt_index is not None:
+                sn, _ = sense_map[cnt_index]
+                sense_map[cnt_index] = (sn, count)
 
-        # ss_type to number mapping for sense key construction
+        # ss_type to number mapping for sense index lookup
         ss_type_num_map: dict[str, int] = {
             "n": 1,
             "v": 2,
@@ -534,10 +579,9 @@ class WordNetConverter:
 
             # Enrich words with sense_number and tag_count
             for word in synset.words:
-                lemma_lower = word.lemma.lower()
-                sense_key = f"{lemma_lower}%{ss_num}:{synset.lex_filenum:02d}:{word.lex_id:02d}::"
-                if sense_key in sense_map:
-                    sn, tc = sense_map[sense_key]
+                entry = sense_map.get((ss_num, synset.offset, word.lemma.lower()))
+                if entry is not None:
+                    sn, tc = entry
                     if sn > 0:
                         word.sense_number = sn
                     word.tag_count = tc
@@ -882,16 +926,13 @@ class WordNetConverter:
             tag_count = int(parts[3])
 
             # Parse sense key components
-            key_parts = sense_key.split("%")
-            if len(key_parts) != 2:
+            split_key = _split_sense_key(sense_key)
+            if split_key is None:
                 return None
 
-            lemma = key_parts[0]
-            rest = key_parts[1].split(":")
-            if len(rest) < 3:
-                return None
+            lemma, ss_type_num = split_key
+            rest = sense_key.partition("%")[2].split(":")
 
-            ss_type_num = int(rest[0])
             lex_filenum = int(rest[1])
             lex_id = int(rest[2])
 
@@ -986,7 +1027,8 @@ def parse_data_file(filepath: Path | str, pos: WordNetPOS) -> list[Synset]:
     filepath : Path | str
         Path to WordNet data file.
     pos : WordNetPOS
-        Part of speech code.
+        Part of speech code. ``"a"`` and ``"s"`` are equivalent and both return
+        all adjective synsets, heads and satellites alike.
 
     Returns
     -------

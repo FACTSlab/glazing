@@ -11,7 +11,7 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 from glazing.wordnet.models import Synset
-from glazing.wordnet.types import SynsetOffset
+from glazing.wordnet.types import SynsetKey, normalize_pos
 
 if TYPE_CHECKING:
     from glazing.wordnet.models import Pointer
@@ -26,12 +26,12 @@ class WordNetRelationTraverser:
 
     Parameters
     ----------
-    synsets : dict[SynsetOffset, Synset]
-        Mapping from synset offset to synset object.
+    synsets : dict[SynsetKey, Synset]
+        Mapping from canonical synset key to synset object.
 
     Attributes
     ----------
-    _synsets : dict[SynsetOffset, Synset]
+    _synsets : dict[SynsetKey, Synset]
         Internal synset storage.
 
     Methods
@@ -73,7 +73,7 @@ class WordNetRelationTraverser:
     >>> similarity = traverser.calculate_path_similarity(dog_synset, cat_synset)
     """
 
-    def __init__(self, synsets: dict[SynsetOffset, Synset]) -> None:
+    def __init__(self, synsets: dict[SynsetKey, Synset]) -> None:
         """Initialize relation traverser with synset data."""
         self._synsets = synsets
 
@@ -97,14 +97,14 @@ class WordNetRelationTraverser:
             hypernyms = []
             for pointer in synset.pointers:
                 if pointer.symbol == "@" and pointer.is_semantic():
-                    hypernym = self._synsets.get(pointer.offset)
+                    hypernym = self._synsets.get(pointer.target_key)
                     if hypernym:
                         hypernyms.append(hypernym)
             return hypernyms
         # Get all hypernyms recursively
-        all_hypernym_offsets = set()
+        all_hypernym_keys = set()
         queue = deque([synset])
-        visited = {synset.offset}
+        visited = {synset.key}
 
         while queue:
             current = queue.popleft()
@@ -112,15 +112,15 @@ class WordNetRelationTraverser:
                 if (
                     pointer.symbol == "@"
                     and pointer.is_semantic()
-                    and pointer.offset not in visited
-                    and (hypernym := self._synsets.get(pointer.offset))
+                    and pointer.target_key not in visited
+                    and (hypernym := self._synsets.get(pointer.target_key))
                 ):
-                    all_hypernym_offsets.add(hypernym.offset)
+                    all_hypernym_keys.add(hypernym.key)
                     queue.append(hypernym)
-                    visited.add(pointer.offset)
+                    visited.add(pointer.target_key)
 
-        hypernyms = [self._synsets[offset] for offset in all_hypernym_offsets]
-        return sorted(hypernyms, key=lambda s: s.offset)
+        hypernyms = [self._synsets[key] for key in all_hypernym_keys]
+        return sorted(hypernyms, key=lambda s: s.key)
 
     def get_hyponyms(self, synset: Synset, direct_only: bool = True) -> list[Synset]:
         """Get hyponyms (inverse of hypernym) of a synset.
@@ -142,14 +142,14 @@ class WordNetRelationTraverser:
             hyponyms = []
             for pointer in synset.pointers:
                 if pointer.symbol == "~" and pointer.is_semantic():
-                    hyponym = self._synsets.get(pointer.offset)
+                    hyponym = self._synsets.get(pointer.target_key)
                     if hyponym:
                         hyponyms.append(hyponym)
             return hyponyms
         # Get all hyponyms recursively
-        all_hyponym_offsets = set()
+        all_hyponym_keys = set()
         queue = deque([synset])
-        visited = {synset.offset}
+        visited = {synset.key}
 
         while queue:
             current = queue.popleft()
@@ -157,15 +157,15 @@ class WordNetRelationTraverser:
                 if (
                     pointer.symbol == "~"
                     and pointer.is_semantic()
-                    and pointer.offset not in visited
-                    and (hyponym := self._synsets.get(pointer.offset))
+                    and pointer.target_key not in visited
+                    and (hyponym := self._synsets.get(pointer.target_key))
                 ):
-                    all_hyponym_offsets.add(hyponym.offset)
+                    all_hyponym_keys.add(hyponym.key)
                     queue.append(hyponym)
-                    visited.add(pointer.offset)
+                    visited.add(pointer.target_key)
 
-        hyponyms = [self._synsets[offset] for offset in all_hyponym_offsets]
-        return sorted(hyponyms, key=lambda s: s.offset)
+        hyponyms = [self._synsets[key] for key in all_hyponym_keys]
+        return sorted(hyponyms, key=lambda s: s.key)
 
     def get_hypernym_paths(self, synset: Synset, max_depth: int = 10) -> list[list[Synset]]:
         """Get all paths to root hypernyms.
@@ -197,7 +197,7 @@ class WordNetRelationTraverser:
             else:
                 for hypernym in hypernyms:
                     # Avoid cycles
-                    if hypernym.offset not in {s.offset for s in path}:
+                    if hypernym.key not in {s.key for s in path}:
                         traverse(hypernym, [*path, hypernym], depth + 1)
 
         traverse(synset, [synset], 0)
@@ -219,16 +219,16 @@ class WordNetRelationTraverser:
             Common hypernym synsets.
         """
         hypernyms1 = self.get_hypernyms(synset1, direct_only=False)
-        hypernyms1_offsets = {h.offset for h in hypernyms1}
-        hypernyms1_offsets.add(synset1.offset)  # Include the synset itself
+        hypernyms1_keys = {h.key for h in hypernyms1}
+        hypernyms1_keys.add(synset1.key)  # Include the synset itself
 
         hypernyms2 = self.get_hypernyms(synset2, direct_only=False)
-        hypernyms2_offsets = {h.offset for h in hypernyms2}
-        hypernyms2_offsets.add(synset2.offset)  # Include the synset itself
+        hypernyms2_keys = {h.key for h in hypernyms2}
+        hypernyms2_keys.add(synset2.key)  # Include the synset itself
 
-        common_offsets = hypernyms1_offsets & hypernyms2_offsets
-        common = [self._synsets[offset] for offset in common_offsets if offset in self._synsets]
-        return sorted(common, key=lambda s: s.offset)
+        common_keys = hypernyms1_keys & hypernyms2_keys
+        common = [self._synsets[key] for key in common_keys if key in self._synsets]
+        return sorted(common, key=lambda s: s.key)
 
     def get_meronyms(self, synset: Synset, meronym_type: str | None = None) -> list[Synset]:
         """Get meronyms (part-of relations) of a synset.
@@ -254,7 +254,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol in symbols and pointer.is_semantic():
-                meronym = self._synsets.get(pointer.offset)
+                meronym = self._synsets.get(pointer.target_key)
                 if meronym:
                     meronyms.append(meronym)
 
@@ -284,7 +284,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol in symbols and pointer.is_semantic():
-                holonym = self._synsets.get(pointer.offset)
+                holonym = self._synsets.get(pointer.target_key)
                 if holonym:
                     holonyms.append(holonym)
 
@@ -310,7 +310,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol == "*" and pointer.is_semantic():
-                entailment = self._synsets.get(pointer.offset)
+                entailment = self._synsets.get(pointer.target_key)
                 if entailment:
                     entailments.append(entailment)
 
@@ -336,7 +336,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol == ">" and pointer.is_semantic():
-                cause = self._synsets.get(pointer.offset)
+                cause = self._synsets.get(pointer.target_key)
                 if cause:
                     causes.append(cause)
 
@@ -362,7 +362,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol == "&" and pointer.is_semantic():
-                sim = self._synsets.get(pointer.offset)
+                sim = self._synsets.get(pointer.target_key)
                 if sim:
                     similar.append(sim)
 
@@ -385,7 +385,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol == "^" and pointer.is_semantic():
-                related = self._synsets.get(pointer.offset)
+                related = self._synsets.get(pointer.target_key)
                 if related:
                     also_see.append(related)
 
@@ -434,7 +434,7 @@ class WordNetRelationTraverser:
         list[tuple[Synset, str]]
             Antonym pairs.
         """
-        ant_synset = self._synsets.get(pointer.offset)
+        ant_synset = self._synsets.get(pointer.target_key)
         if not ant_synset:
             return []
 
@@ -572,7 +572,7 @@ class WordNetRelationTraverser:
         list[tuple[Synset, str]]
             Derivation pairs.
         """
-        der_synset = self._synsets.get(pointer.offset)
+        der_synset = self._synsets.get(pointer.target_key)
         if not der_synset:
             return []
 
@@ -648,12 +648,13 @@ class WordNetRelationTraverser:
             Similarity score between 0 and 1.
             Returns 0 if synsets are not connected.
         """
-        # Must be same POS
-        if synset1.ss_type != synset2.ss_type:
+        # Must be same POS. Adjective heads and satellites count as one POS:
+        # they share a hierarchy through similar-to pointers.
+        if normalize_pos(synset1.ss_type) != normalize_pos(synset2.ss_type):
             return 0.0
 
         # Same synset has similarity 1
-        if synset1.offset == synset2.offset:
+        if synset1.key == synset2.key:
             return 1.0
 
         # Find shortest path through common hypernyms
@@ -695,23 +696,23 @@ class WordNetRelationTraverser:
         int
             Minimum distance, or -1 if not connected.
         """
-        if start.offset == target.offset:
+        if start.key == target.key:
             return 0
 
         # BFS to find shortest path
         queue = deque([(start, 0)])
-        visited = {start.offset}
+        visited = {start.key}
 
         while queue:
             current, distance = queue.popleft()
 
             # Check hypernyms
             for hypernym in self.get_hypernyms(current, direct_only=True):
-                if hypernym.offset == target.offset:
+                if hypernym.key == target.key:
                     return distance + 1
 
-                if hypernym.offset not in visited:
-                    visited.add(hypernym.offset)
+                if hypernym.key not in visited:
+                    visited.add(hypernym.key)
                     queue.append((hypernym, distance + 1))
 
         return -1
@@ -755,7 +756,7 @@ class WordNetRelationTraverser:
 
         for pointer in synset.pointers:
             if pointer.symbol == "$" and pointer.is_semantic():
-                group = self._synsets.get(pointer.offset)
+                group = self._synsets.get(pointer.target_key)
                 if group:
                     groups.append(group)
 

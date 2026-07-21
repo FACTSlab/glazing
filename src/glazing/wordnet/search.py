@@ -8,8 +8,9 @@ searches with domain-specific filtering.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
+from typing import cast
 
 from glazing.syntax.models import UnifiedSyntaxPattern
 from glazing.syntax.parser import SyntaxParser
@@ -18,9 +19,12 @@ from glazing.wordnet.symbol_parser import filter_by_relation_type
 from glazing.wordnet.types import (
     LexFileName,
     SenseKey,
+    SynsetKey,
     SynsetOffset,
     VerbFrameNumber,
     WordNetPOS,
+    make_synset_key,
+    normalize_pos,
 )
 
 
@@ -40,14 +44,15 @@ class WordNetSearch:
 
     Attributes
     ----------
-    _synsets : dict[SynsetOffset, Synset]
-        Mapping from synset offset to synset object.
-    _synsets_by_lemma : dict[str, dict[WordNetPOS, set[SynsetOffset]]]
-        Mapping from lemma and POS to synset offsets.
+    _synsets : dict[SynsetKey, Synset]
+        Mapping from canonical synset key to synset object.
+    _synsets_by_lemma : dict[str, dict[WordNetPOS, set[SynsetKey]]]
+        Mapping from lemma and POS to synset keys. Adjective satellites appear
+        under both ``"s"`` and ``"a"``.
     _senses : dict[SenseKey, Sense]
         Mapping from sense key to sense object.
-    _synsets_by_domain : dict[LexFileName, set[SynsetOffset]]
-        Mapping from lexical file name to synset offsets.
+    _synsets_by_domain : dict[LexFileName, set[SynsetKey]]
+        Mapping from lexical file name to synset keys.
 
     Methods
     -------
@@ -56,7 +61,7 @@ class WordNetSearch:
     add_sense(sense)
         Add a sense to the search index.
     by_offset(offset, pos)
-        Find synset by offset and POS.
+        Find synset by offset or canonical key, optionally filtered by POS.
     by_lemma(lemma, pos)
         Find synsets containing a lemma.
     by_sense_key(sense_key)
@@ -82,13 +87,13 @@ class WordNetSearch:
         self, synsets: list[Synset] | None = None, senses: list[Sense] | None = None
     ) -> None:
         """Initialize WordNet search with optional initial data."""
-        self._synsets: dict[SynsetOffset, Synset] = {}
-        self._synsets_by_lemma: dict[str, dict[WordNetPOS, set[SynsetOffset]]] = defaultdict(
+        self._synsets: dict[SynsetKey, Synset] = {}
+        self._synsets_by_lemma: dict[str, dict[WordNetPOS, set[SynsetKey]]] = defaultdict(
             lambda: defaultdict(set)
         )
         self._senses: dict[SenseKey, Sense] = {}
-        self._synsets_by_domain: dict[LexFileName, set[SynsetOffset]] = defaultdict(set)
-        self._synsets_by_pos: dict[WordNetPOS, set[SynsetOffset]] = defaultdict(set)
+        self._synsets_by_domain: dict[LexFileName, set[SynsetKey]] = defaultdict(set)
+        self._synsets_by_pos: dict[WordNetPOS, set[SynsetKey]] = defaultdict(set)
 
         if synsets:
             for synset in synsets:
@@ -109,21 +114,24 @@ class WordNetSearch:
         Raises
         ------
         ValueError
-            If synset with same offset already exists.
+            If a synset with the same canonical key already exists.
         """
-        if synset.offset in self._synsets:
-            msg = f"Synset with offset {synset.offset} already exists"
+        if synset.key in self._synsets:
+            msg = f"Synset with key {synset.key} already exists"
             raise ValueError(msg)
 
-        self._synsets[synset.offset] = synset
-        self._synsets_by_pos[synset.ss_type].add(synset.offset)
+        self._synsets[synset.key] = synset
 
-        # Index by lemma
-        for word in synset.words:
-            self._synsets_by_lemma[word.lemma][synset.ss_type].add(synset.offset)
+        # Satellites index under both "s" and "a" so that either query finds
+        # them, while ss_type on the record still reports "s".
+        positions: set[WordNetPOS] = {synset.ss_type, normalize_pos(synset.ss_type)}
+        for pos in positions:
+            self._synsets_by_pos[pos].add(synset.key)
+            for word in synset.words:
+                self._synsets_by_lemma[word.lemma][pos].add(synset.key)
 
         # Index by domain (lexical file)
-        self._synsets_by_domain[synset.lex_filename].add(synset.offset)
+        self._synsets_by_domain[synset.lex_filename].add(synset.key)
 
     def add_sense(self, sense: Sense) -> None:
         """Add a sense to the search index.
@@ -144,23 +152,42 @@ class WordNetSearch:
 
         self._senses[sense.sense_key] = sense
 
-    def by_offset(self, offset: SynsetOffset, pos: WordNetPOS | None = None) -> Synset | None:
-        """Find synset by offset and optionally POS.
+    def by_offset(
+        self, offset: SynsetOffset | SynsetKey, pos: WordNetPOS | None = None
+    ) -> Synset | None:
+        """Find synset by offset or canonical key, optionally filtered by POS.
 
         Parameters
         ----------
-        offset : SynsetOffset
-            Synset offset (8-digit string).
+        offset : SynsetOffset | SynsetKey
+            Synset offset (8-digit string) or canonical key (9 characters).
         pos : WordNetPOS | None
-            Part of speech to filter by.
+            Part of speech to filter by. Passing ``"a"`` matches adjective
+            heads and satellites alike; ``"s"`` matches satellites only.
 
         Returns
         -------
         Synset | None
             Synset if found, None otherwise.
+
+        Notes
+        -----
+        An unqualified offset shared by synsets in more than one part of speech
+        is ambiguous and yields None; pass `pos` or a canonical key instead.
         """
-        synset = self._synsets.get(offset)
-        if synset and pos is not None and synset.ss_type != pos:
+        if len(offset) == 9:
+            key = make_synset_key(offset[:8], cast(WordNetPOS, offset[8]))
+        elif pos is not None:
+            key = make_synset_key(offset, pos)
+        else:
+            candidates = [k for k in self._synsets if k[:8] == offset]
+            if len(candidates) != 1:
+                return None
+            key = candidates[0]
+
+        synset = self._synsets.get(key)
+        # "s" is not encoded in the key, so filter satellites explicitly.
+        if synset and pos == "s" and synset.ss_type != "s":
             return None
         return synset
 
@@ -182,16 +209,17 @@ class WordNetSearch:
         # Normalize lemma
         lemma = lemma.lower().replace(" ", "_")
 
-        synsets = []
         if pos is not None:
             # Search specific POS
-            offsets = self._synsets_by_lemma.get(lemma, {}).get(pos, set())
-            synsets = [self._synsets[offset] for offset in offsets]
+            keys = self._synsets_by_lemma.get(lemma, {}).get(pos, set())
         else:
-            # Search all POS
-            for pos_offsets in self._synsets_by_lemma.get(lemma, {}).values():
-                synsets.extend([self._synsets[offset] for offset in pos_offsets])
+            # Search all POS. Satellites are indexed under both "s" and "a",
+            # so take the union rather than concatenating per-POS results.
+            keys = set()
+            for pos_keys in self._synsets_by_lemma.get(lemma, {}).values():
+                keys |= pos_keys
 
+        synsets = [self._synsets[key] for key in keys]
         return sorted(synsets, key=lambda s: s.offset)
 
     def by_sense_key(self, sense_key: SenseKey) -> Synset | None:
@@ -209,7 +237,7 @@ class WordNetSearch:
         """
         sense = self._senses.get(sense_key)
         if sense:
-            return self._synsets.get(sense.synset_offset)
+            return self._synsets.get(make_synset_key(sense.synset_offset, sense.ss_type))
         return None
 
     def by_pattern(
@@ -239,21 +267,21 @@ class WordNetSearch:
         flags = 0 if case_sensitive else re.IGNORECASE
         regex = re.compile(pattern, flags)
 
-        matching_offsets = set()
+        matching_keys = set()
 
         # Determine which synsets to search
         if pos is not None:
-            synsets_to_search = [self._synsets[offset] for offset in self._synsets_by_pos[pos]]
+            synsets_to_search = [self._synsets[key] for key in self._synsets_by_pos[pos]]
         else:
             synsets_to_search = list(self._synsets.values())
 
         for synset in synsets_to_search:
             for word in synset.words:
                 if regex.search(word.lemma):
-                    matching_offsets.add(synset.offset)
+                    matching_keys.add(synset.key)
                     break
 
-        synsets = [self._synsets[offset] for offset in matching_offsets]
+        synsets = [self._synsets[key] for key in matching_keys]
         return sorted(synsets, key=lambda s: s.offset)
 
     def by_domain(self, domain: LexFileName) -> list[Synset]:
@@ -269,8 +297,8 @@ class WordNetSearch:
         list[Synset]
             Synsets in the specified domain.
         """
-        offsets = self._synsets_by_domain.get(domain, set())
-        synsets = [self._synsets[offset] for offset in offsets]
+        keys = self._synsets_by_domain.get(domain, set())
+        synsets = [self._synsets[key] for key in keys]
         return sorted(synsets, key=lambda s: s.offset)
 
     def by_gloss_pattern(
@@ -304,7 +332,7 @@ class WordNetSearch:
 
         # Determine which synsets to search
         if pos is not None:
-            synsets_to_search = [self._synsets[offset] for offset in self._synsets_by_pos[pos]]
+            synsets_to_search = [self._synsets[key] for key in self._synsets_by_pos[pos]]
         else:
             synsets_to_search = list(self._synsets.values())
 
@@ -540,8 +568,8 @@ class WordNetSearch:
         """
         if len(synset_id) == 9 and synset_id[:-1].isdigit() and synset_id[-1] in "nvasr":
             offset = synset_id[:-1]
-            pos = synset_id[-1]
-            return self.by_offset(offset, pos)  # type: ignore[arg-type]
+            pos = cast(WordNetPOS, synset_id[-1])
+            return self.by_offset(offset, pos)
         return None
 
     def get_statistics(self) -> dict[str, int]:
@@ -556,8 +584,9 @@ class WordNetSearch:
 
         total_lemmas = len(self._synsets_by_lemma)
 
-        # Count synsets by POS
-        pos_counts = {pos: len(offsets) for pos, offsets in self._synsets_by_pos.items()}
+        # Count synsets by POS from the records themselves; _synsets_by_pos
+        # indexes satellites twice and would double-count adjectives.
+        pos_counts = Counter(s.ss_type for s in self._synsets.values())
 
         return {
             "synset_count": len(self._synsets),

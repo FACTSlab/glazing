@@ -125,14 +125,14 @@ class TestWordNetRoundTrip:
         wn = wordnet_data["loader"]
 
         # breathe in synset 00001740 should have tag_count=25, sense_number=1
-        synset = wn.synsets["00001740"]
+        synset = wn.synsets["00001740v"]
         breathe_word = synset.words[0]
         assert breathe_word.lemma == "breathe"
         assert breathe_word.tag_count == 25
         assert breathe_word.sense_number == 1
 
         # entity in synset 00002325 should have tag_count=11
-        entity_synset = wn.synsets["00002325"]
+        entity_synset = wn.synsets["00002325n"]
         entity_word = entity_synset.words[0]
         assert entity_word.lemma == "entity"
         assert entity_word.tag_count == 11
@@ -140,7 +140,7 @@ class TestWordNetRoundTrip:
     def test_verb_frame_templates(self, wordnet_data):
         """VerbFrames have template and example_sentence from verb.Framestext/sents.vrb."""
         wn = wordnet_data["loader"]
-        synset = wn.synsets["00001740"]
+        synset = wn.synsets["00001740v"]
 
         assert synset.frames is not None
         assert len(synset.frames) == 1
@@ -153,7 +153,7 @@ class TestWordNetRoundTrip:
     def test_pointers_preserved(self, wordnet_data):
         """Pointer relations survive the round-trip."""
         wn = wordnet_data["loader"]
-        synset = wn.synsets["00001740"]
+        synset = wn.synsets["00001740v"]
 
         assert len(synset.pointers) == 2
         symbols = {p.symbol for p in synset.pointers}

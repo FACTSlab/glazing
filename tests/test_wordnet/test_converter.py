@@ -471,10 +471,8 @@ class TestAdjectiveSyntacticMarkers:
         data_file = tmp_path / "data.adj"
         data_file.write_text(content, encoding="utf-8")
 
-        synsets = converter.parse_data_file(data_file, "a") + converter.parse_data_file(
-            data_file, "s"
-        )
-        # All four synsets survive parsing.
+        # A single adjective pass returns heads and satellites alike.
+        synsets = converter.parse_data_file(data_file, "a")
         assert len(synsets) == 4
 
         markers = {w.lemma: w.syntactic_marker for synset in synsets for w in synset.words}

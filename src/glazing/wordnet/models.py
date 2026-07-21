@@ -51,10 +51,12 @@ from glazing.wordnet.types import (
     PointerSymbol,
     SenseKey,
     SenseNumber,
+    SynsetKey,
     SynsetOffset,
     TagCount,
     VerbFrameNumber,
     WordNetPOS,
+    make_synset_key,
 )
 
 
@@ -136,6 +138,8 @@ class Pointer(GlazingBaseModel):
         Source word number (0 = entire synset).
     target : int
         Target word number (0 = entire synset).
+    target_key : SynsetKey
+        Canonical key of the targeted synset.
 
     Methods
     -------
@@ -155,6 +159,8 @@ class Pointer(GlazingBaseModel):
     ... )
     >>> pointer.is_semantic()
     True
+    >>> pointer.target_key
+    '00002084n'
     """
 
     symbol: PointerSymbol = Field(description="Relation type symbol")
@@ -182,6 +188,21 @@ class Pointer(GlazingBaseModel):
             True if both source and target are zero.
         """
         return self.source == 0 and self.target == 0
+
+    @property
+    def target_key(self) -> SynsetKey:
+        """Canonical key of the synset this pointer targets.
+
+        Matches `Synset.key` of the target, including when the target is an
+        adjective satellite: WordNet records ``"a"`` in the POS field of every
+        pointer to an adjective, so normalization makes the two agree.
+
+        Returns
+        -------
+        SynsetKey
+            Target offset plus normalized POS.
+        """
+        return make_synset_key(self.offset, self.pos)
 
 
 class VerbFrame(GlazingBaseModel):
@@ -262,6 +283,8 @@ class Synset(GlazingBaseModel):
         Verb frames (verbs only).
     gloss : str
         Definition and examples.
+    key : SynsetKey
+        Canonical identifier: offset plus normalized POS.
 
     Methods
     -------
@@ -285,6 +308,22 @@ class Synset(GlazingBaseModel):
     ... )
     >>> synset.get_lemmas()
     ['dog']
+    >>> synset.key
+    '00001740n'
+
+    An adjective satellite keys under "a", matching the pointers that target it.
+
+    >>> satellite = Synset(
+    ...     offset="00014377",
+    ...     lex_filenum=0,
+    ...     lex_filename="adj.all",
+    ...     ss_type="s",
+    ...     words=[Word(lemma="abounding", lex_id=0)],
+    ...     pointers=[],
+    ...     gloss="existing in abundance"
+    ... )
+    >>> satellite.key
+    '00014377a'
     """
 
     offset: SynsetOffset = Field(description="8-digit synset identifier")
@@ -295,6 +334,22 @@ class Synset(GlazingBaseModel):
     pointers: list[Pointer] = Field(default_factory=list, description="Relations")
     frames: list[VerbFrame] | None = Field(None, description="Verb frames (verbs only)")
     gloss: str = Field(description="Definition and examples")
+
+    @property
+    def key(self) -> SynsetKey:
+        """Canonical identifier for this synset.
+
+        Offsets alone do not identify a synset - they are byte offsets into a
+        per-POS data file and collide across files. Pairing the offset with the
+        normalized POS gives a database-wide unique key that also matches the
+        `Pointer.target_key` of any pointer referencing this synset.
+
+        Returns
+        -------
+        SynsetKey
+            Offset plus normalized POS; satellites (``"s"``) key under ``"a"``.
+        """
+        return make_synset_key(self.offset, self.ss_type)
 
     def get_lemmas(self) -> list[str]:
         """Get all lemmas in the synset.
