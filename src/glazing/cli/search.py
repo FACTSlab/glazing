@@ -763,7 +763,7 @@ def search_relations(
             table.add_column("Definition", style="white", no_wrap=False)
 
             for synset in synsets[:20]:
-                synset_id = f"{synset.offset:08d}{synset.ss_type}"
+                synset_id = synset.key
                 words = ", ".join(w.lemma for w in synset.words[:3])
                 if len(synset.words) > 3:
                     words += f" (+{len(synset.words) - 3})"
