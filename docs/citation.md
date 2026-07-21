@@ -12,22 +12,22 @@ If you use Glazing in your research, please cite our work.
   title = {Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies},
   year = {2025},
   url = {https://github.com/factslab/glazing},
-  version = {0.2.3},
+  version = {0.3.0},
   doi = {10.5281/zenodo.17467082}
 }
 ```
 
 ### APA
 
-White, A. S. (2025). *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies* (Version 0.2.3) [Computer software]. https://github.com/factslab/glazing
+White, A. S. (2025). *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies* (Version 0.3.0) [Computer software]. https://github.com/factslab/glazing
 
 ### Chicago
 
-White, Aaron Steven. 2025. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.3. https://github.com/factslab/glazing.
+White, Aaron Steven. 2025. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.3.0. https://github.com/factslab/glazing.
 
 ### MLA
 
-White, Aaron Steven. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.2.3, 2025, https://github.com/factslab/glazing.
+White, Aaron Steven. *Glazing: Unified Data Models and Interfaces for Syntactic and Semantic Frame Ontologies*. Version 0.3.0, 2025, https://github.com/factslab/glazing.
 
 ## Citing Datasets
 

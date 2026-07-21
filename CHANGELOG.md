@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-21
+
+### Added
+
+- **Canonical synset keys.** `Synset.key` and `Pointer.target_key` pair an 8-digit offset with a normalized part of speech (e.g. `"00001740n"`), with `normalize_pos` and `make_synset_key` in `glazing.wordnet.types`. Offsets are byte offsets into a per-POS data file and 333 of them name more than one synset in WordNet 3.1, so an offset alone cannot identify a synset. Satellites normalize to `"a"`, matching the POS WordNet records in every pointer to an adjective, so a synset record and any pointer targeting it now produce the same key
+- **Converted-data versioning.** The `.initialized` marker records a `DATA_SCHEMA_VERSION`; `glazing init` re-converts when it predates the current version, and importing `glazing` warns when converted data is stale. Previously the marker was empty, so upgraded users silently kept outdated files
+
+### Fixed
+
+- **WordNet adjective satellites** are no longer dropped during conversion; all 10,717 `ss_type="s"` synsets — about 59% of WordNet's adjectives — were discarded while the pointers referencing them were still emitted, leaving ~10,720 dangling references for any consumer following adjective relations (#11)
+- **WordNet satellite sense enrichment** now populates `sense_number` and `tag_count` for satellites. Enrichment built a head-less sense key (`lemma%5:LL:II::`), but real satellite keys carry a `head_word:head_id` suffix that the data file does not record; lookups are now keyed on the synset offset from `index.sense`, which is unambiguous where the head-less prefix is not (2,966 of 20,384 satellite keys share one)
+- **WordNet synsets sharing an offset across parts of speech** no longer overwrite each other in `WordNetLoader` or raise `ValueError` in `WordNetSearch`, and pointers resolve to the synset they name rather than to whichever synset happened to share the offset
+- **WordNet lemmas beginning with a dot or apostrophe** (`.22_caliber`, `'hood`, `'tween`, `'s_Gravenhage`) no longer fail lemma validation, which discarded their entire synsets — 7 in total
+- **`glazing search relations --dataset wordnet`** no longer fails with `Unknown format code 'd' for object of type 'str'`; synset IDs were built with `f"{synset.offset:08d}"` against a string offset
+
+### Changed
+
+- **BREAKING: `WordNetLoader.synsets`, `lemma_index`, and the four relation indices are keyed by `SynsetKey`** (e.g. `"00001740n"`) rather than by bare offset. `get_synset` still accepts a bare offset and returns `None` when one is ambiguous; pass `pos` or a canonical key to disambiguate. `WordNetSearch.by_offset` accepts either form
+- **Adjective satellites are indexed under both `"s"` and `"a"`**, so a query for adjectives returns heads and satellites together while `ss_type` on the record still reports `"s"`
+
+### Upgrading
+
+Converted data from earlier versions is missing all 10,717 satellites and cannot be repaired in place. Run `glazing init` to re-convert from the already-downloaded source files; no re-download is needed.
+
 ## [0.2.3] - 2026-06-25
 
 ### Added
@@ -224,7 +248,9 @@ Initial release of `glazing`, a package containing unified data models and inter
 - `tqdm >= 4.60.0` (progress bars)
 - `rich >= 13.0.0` (CLI formatting)
 
-[Unreleased]: https://github.com/factslab/glazing/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/factslab/glazing/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/factslab/glazing/releases/tag/v0.3.0
+[0.2.3]: https://github.com/factslab/glazing/releases/tag/v0.2.3
 [0.2.2]: https://github.com/factslab/glazing/releases/tag/v0.2.2
 [0.2.1]: https://github.com/factslab/glazing/releases/tag/v0.2.1
 [0.2.0]: https://github.com/factslab/glazing/releases/tag/v0.2.0
