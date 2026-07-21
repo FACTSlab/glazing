@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **WordNet adjective satellites** are no longer dropped during conversion; all 10,717 `ss_type="s"` synsets — about 59% of WordNet's adjectives — were discarded while the pointers referencing them were still emitted, leaving ~10,720 dangling references for any consumer following adjective relations (#11)
+- **WordNet adjective satellites** are no longer dropped during conversion; all 10,717 `ss_type="s"` synsets, about 59% of WordNet's adjectives, were discarded while the pointers referencing them were still emitted, leaving ~10,720 dangling references for any consumer following adjective relations (#11)
 - **WordNet satellite sense enrichment** now populates `sense_number` and `tag_count` for satellites. Enrichment built a head-less sense key (`lemma%5:LL:II::`), but real satellite keys carry a `head_word:head_id` suffix that the data file does not record; lookups are now keyed on the synset offset from `index.sense`, which is unambiguous where the head-less prefix is not (2,966 of 20,384 satellite keys share one)
 - **WordNet synsets sharing an offset across parts of speech** no longer overwrite each other in `WordNetLoader` or raise `ValueError` in `WordNetSearch`, and pointers resolve to the synset they name rather than to whichever synset happened to share the offset
-- **WordNet lemmas beginning with a dot or apostrophe** (`.22_caliber`, `'hood`, `'tween`, `'s_Gravenhage`) no longer fail lemma validation, which discarded their entire synsets — 7 in total
+- **WordNet lemmas beginning with a dot or apostrophe** (`.22_caliber`, `'hood`, `'tween`, `'s_Gravenhage`) no longer fail lemma validation, which discarded their entire synsets (7 in total)
 - **`glazing search relations --dataset wordnet`** no longer fails with `Unknown format code 'd' for object of type 'str'`; synset IDs were built with `f"{synset.offset:08d}"` against a string offset
 
 ### Changed
