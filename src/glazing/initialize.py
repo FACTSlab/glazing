@@ -6,6 +6,7 @@ all linguistic datasets on first use or installation.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,58 @@ from glazing.framenet.converter import FrameNetConverter
 from glazing.propbank.converter import PropBankConverter
 from glazing.verbnet.converter import VerbNetConverter
 from glazing.wordnet.converter import WordNetConverter
+
+# Version of the converted-data layout. Bump whenever a converter change makes
+# previously converted files stale, so that `glazing init` re-converts rather
+# than leaving users on silently outdated data.
+#
+# 2: WordNet adjective satellites are retained (previously all 10,717 were
+#    dropped) and satellite senses are enriched.
+DATA_SCHEMA_VERSION = 2
+
+
+def _read_schema_version(marker_file: Path) -> int | None:
+    """Read the data schema version recorded in an initialization marker.
+
+    Parameters
+    ----------
+    marker_file : Path
+        Path to the ``.initialized`` marker.
+
+    Returns
+    -------
+    int | None
+        Recorded schema version, or None if absent or unreadable. Markers
+        written before versioning was introduced are empty and read as None.
+    """
+    try:
+        payload = json.loads(marker_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    version = payload.get("schema_version") if isinstance(payload, dict) else None
+    return version if isinstance(version, int) else None
+
+
+def is_data_current(data_dir: Path | None = None) -> bool:
+    """Check whether converted data matches the current schema version.
+
+    Parameters
+    ----------
+    data_dir : Path | None
+        Data directory to check. If None, uses default.
+
+    Returns
+    -------
+    bool
+        True if the marker records the current schema version.
+    """
+    if data_dir is None:
+        data_dir = get_default_data_dir()
+
+    marker_file = Path(data_dir) / ".initialized"
+    if not marker_file.exists():
+        return False
+    return _read_schema_version(marker_file) == DATA_SCHEMA_VERSION
 
 
 def get_default_data_dir() -> Path:
@@ -260,12 +313,17 @@ def initialize_datasets(
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    # Check if already initialized (unless force is True)
+    # Check if already initialized at the current schema version. Data
+    # converted by an older glazing is stale even though the marker exists,
+    # so re-convert rather than leaving the user on outdated files.
     marker_file = data_dir / ".initialized"
     if marker_file.exists() and not force:
+        if _read_schema_version(marker_file) == DATA_SCHEMA_VERSION:
+            if verbose:
+                click.echo("Datasets already initialized. Use --force to re-download.")
+            return True
         if verbose:
-            click.echo("Datasets already initialized. Use --force to re-download.")
-        return True
+            click.echo("Converted data predates the current schema; re-converting.")
 
     if verbose:
         click.echo(f"Initializing glazing datasets in {data_dir}")
@@ -276,9 +334,12 @@ def initialize_datasets(
     results = [_process_dataset(name, data_dir, verbose) for name in datasets]
     success = all(results)
 
-    # Create marker file
+    # Create marker file recording the schema the data was converted against
     if success:
-        marker_file.touch()
+        marker_file.write_text(
+            json.dumps({"schema_version": DATA_SCHEMA_VERSION}),
+            encoding="utf-8",
+        )
         if verbose:
             click.echo("\n" + "=" * 60)
             click.echo("✅ All datasets successfully initialized!")

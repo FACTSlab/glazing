@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
+from typing import cast
 
 from pydantic import ValidationError
 
@@ -44,8 +45,11 @@ from glazing.wordnet.models import (
 )
 from glazing.wordnet.types import (
     SenseKey,
+    SynsetKey,
     SynsetOffset,
     WordNetPOS,
+    make_synset_key,
+    normalize_pos,
 )
 
 
@@ -72,10 +76,13 @@ class WordNetLoader:
 
     Attributes
     ----------
-    synsets : dict[SynsetOffset, Synset]
-        All loaded synsets indexed by offset.
-    lemma_index : dict[str, dict[WordNetPOS, list[SynsetOffset]]]
-        Index from lemmas to synset offsets by POS.
+    synsets : dict[SynsetKey, Synset]
+        All loaded synsets indexed by canonical key (offset plus normalized
+        POS, e.g. ``"00001740n"``). Offsets alone collide across parts of
+        speech and so cannot key this mapping.
+    lemma_index : dict[str, dict[WordNetPOS, list[SynsetKey]]]
+        Index from lemmas to synset keys by POS. Adjective satellites appear
+        under both ``"s"`` and ``"a"``.
     sense_index : dict[SenseKey, Sense]
         Index from sense keys to sense objects.
     exceptions : dict[WordNetPOS, dict[str, list[str]]]
@@ -85,8 +92,8 @@ class WordNetLoader:
     -------
     load()
         Load all WordNet data from JSON Lines files.
-    get_synset(offset)
-        Get a synset by its offset.
+    get_synset(offset, pos)
+        Get a synset by its offset or canonical key.
     get_senses_by_lemma(lemma, pos)
         Get all senses for a lemma and optional POS.
     get_sense_by_key(sense_key)
@@ -134,20 +141,23 @@ class WordNetLoader:
         self.lazy = lazy
         self.cache_size = cache_size
 
-        # Core data structures
-        self.synsets: dict[SynsetOffset, Synset] = {}
-        self.lemma_index: dict[str, dict[WordNetPOS, list[SynsetOffset]]] = defaultdict(dict)
+        # Core data structures, keyed by canonical synset key (offset + POS)
+        self.synsets: dict[SynsetKey, Synset] = {}
+        self.lemma_index: dict[str, dict[WordNetPOS, list[SynsetKey]]] = defaultdict(dict)
         self.sense_index: dict[SenseKey, Sense] = {}
         self.exceptions: dict[WordNetPOS, dict[str, list[str]]] = {}
 
         # Relation indices for efficient traversal
-        self.hypernym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
-        self.hyponym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
-        self.meronym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
-        self.holonym_index: dict[SynsetOffset, list[SynsetOffset]] = defaultdict(list)
+        self.hypernym_index: dict[SynsetKey, list[SynsetKey]] = defaultdict(list)
+        self.hyponym_index: dict[SynsetKey, list[SynsetKey]] = defaultdict(list)
+        self.meronym_index: dict[SynsetKey, list[SynsetKey]] = defaultdict(list)
+        self.holonym_index: dict[SynsetKey, list[SynsetKey]] = defaultdict(list)
 
-        # File index for lazy loading (offset -> byte position in file)
-        self._synset_file_index: dict[SynsetOffset, int] = {}
+        # Bare offset -> keys sharing it, for resolving unqualified lookups
+        self._keys_by_offset: dict[SynsetOffset, list[SynsetKey]] = defaultdict(list)
+
+        # File index for lazy loading (key -> byte position in file)
+        self._synset_file_index: dict[SynsetKey, int] = {}
 
         # Cache for lazy loading
         if lazy:
@@ -212,7 +222,8 @@ class WordNetLoader:
                 try:
                     data = json.loads(line)
                     synset = Synset.model_validate(data)
-                    self.synsets[synset.offset] = synset
+                    self.synsets[synset.key] = synset
+                    self._keys_by_offset[synset.offset].append(synset.key)
                 except (json.JSONDecodeError, ValidationError):
                     continue
 
@@ -234,35 +245,38 @@ class WordNetLoader:
                 try:
                     data = json.loads(line)
                     offset = data.get("offset")
-                    if offset:
-                        self._synset_file_index[offset] = byte_pos
+                    ss_type = data.get("ss_type")
+                    if offset and ss_type:
+                        key = make_synset_key(offset, ss_type)
+                        self._synset_file_index[key] = byte_pos
+                        self._keys_by_offset[offset].append(key)
                 except json.JSONDecodeError:
                     pass
 
-    def _load_synset_lazy(self, offset: SynsetOffset) -> Synset | None:
+    def _load_synset_lazy(self, key: SynsetKey) -> Synset | None:
         """Load a single synset on demand.
 
         Parameters
         ----------
-        offset : SynsetOffset
-            The synset offset to load.
+        key : SynsetKey
+            The canonical synset key to load.
 
         Returns
         -------
         Synset | None
             The loaded synset or None if not found.
         """
-        if offset in self.synsets:
-            return self.synsets[offset]
+        if key in self.synsets:
+            return self.synsets[key]
 
         # Check cache first
         if self._cache is not None:
-            cached = self._cache.get(offset)
+            cached = self._cache.get(key)
             if cached is not None:
                 return cached
 
         # Load from file using byte offset
-        byte_pos = self._synset_file_index.get(offset)
+        byte_pos = self._synset_file_index.get(key)
         if byte_pos is None:
             return None
 
@@ -275,22 +289,28 @@ class WordNetLoader:
 
                 # Cache it
                 if self._cache is not None:
-                    self._cache.put(offset, synset)
+                    self._cache.put(key, synset)
 
                 return synset
         except (json.JSONDecodeError, ValidationError):
             return None
 
     def _build_lemma_index(self) -> None:
-        """Build lemma→synset index from loaded synset data."""
+        """Build lemma→synset index from loaded synset data.
+
+        Adjective satellites are indexed under both ``"s"`` and the normalized
+        ``"a"``, so a query for adjectives returns heads and satellites together
+        while a query for ``"s"`` still isolates satellites.
+        """
         for synset in self.synsets.values():
-            pos = synset.ss_type
+            positions: set[WordNetPOS] = {synset.ss_type, normalize_pos(synset.ss_type)}
             for word in synset.words:
                 lemma = word.lemma.lower()
-                if pos not in self.lemma_index[lemma]:
-                    self.lemma_index[lemma][pos] = []
-                if synset.offset not in self.lemma_index[lemma][pos]:
-                    self.lemma_index[lemma][pos].append(synset.offset)
+                for pos in positions:
+                    if pos not in self.lemma_index[lemma]:
+                        self.lemma_index[lemma][pos] = []
+                    if synset.key not in self.lemma_index[lemma][pos]:
+                        self.lemma_index[lemma][pos].append(synset.key)
 
     def _load_sense_index(self) -> None:
         """Load sense index from supplementary JSONL file."""
@@ -335,54 +355,106 @@ class WordNetLoader:
                     continue
 
     def _build_relation_indices(self) -> None:
-        """Build relation indices for efficient traversal."""
+        """Build relation indices for efficient traversal.
+
+        Both sides are keyed canonically, so a pointer resolves to the synset it
+        actually names rather than to whichever synset happens to share its
+        offset in another part of speech.
+        """
         for synset in self.synsets.values():
+            source = synset.key
             for pointer in synset.pointers:
+                target = pointer.target_key
+
                 # Hypernym/hyponym relations
                 if pointer.symbol == "@":
-                    if pointer.offset not in self.hypernym_index[synset.offset]:
-                        self.hypernym_index[synset.offset].append(pointer.offset)
-                    if synset.offset not in self.hyponym_index[pointer.offset]:
-                        self.hyponym_index[pointer.offset].append(synset.offset)
+                    if target not in self.hypernym_index[source]:
+                        self.hypernym_index[source].append(target)
+                    if source not in self.hyponym_index[target]:
+                        self.hyponym_index[target].append(source)
                 elif pointer.symbol == "~":
-                    if pointer.offset not in self.hyponym_index[synset.offset]:
-                        self.hyponym_index[synset.offset].append(pointer.offset)
-                    if synset.offset not in self.hypernym_index[pointer.offset]:
-                        self.hypernym_index[pointer.offset].append(synset.offset)
+                    if target not in self.hyponym_index[source]:
+                        self.hyponym_index[source].append(target)
+                    if source not in self.hypernym_index[target]:
+                        self.hypernym_index[target].append(source)
 
                 # Meronym/holonym relations
                 elif pointer.symbol in ("%m", "%s", "%p"):
-                    if pointer.offset not in self.meronym_index[synset.offset]:
-                        self.meronym_index[synset.offset].append(pointer.offset)
-                    if synset.offset not in self.holonym_index[pointer.offset]:
-                        self.holonym_index[pointer.offset].append(synset.offset)
+                    if target not in self.meronym_index[source]:
+                        self.meronym_index[source].append(target)
+                    if source not in self.holonym_index[target]:
+                        self.holonym_index[target].append(source)
                 elif pointer.symbol in ("#m", "#s", "#p"):
-                    if pointer.offset not in self.holonym_index[synset.offset]:
-                        self.holonym_index[synset.offset].append(pointer.offset)
-                    if synset.offset not in self.meronym_index[pointer.offset]:
-                        self.meronym_index[pointer.offset].append(synset.offset)
+                    if target not in self.holonym_index[source]:
+                        self.holonym_index[source].append(target)
+                    if source not in self.meronym_index[target]:
+                        self.meronym_index[target].append(source)
 
-    def get_synset(self, offset: SynsetOffset) -> Synset | None:
-        """Get a synset by its offset.
+    def get_synset(
+        self, offset: SynsetOffset | SynsetKey, pos: WordNetPOS | None = None
+    ) -> Synset | None:
+        """Get a synset by its offset or canonical key.
 
         Parameters
         ----------
-        offset : SynsetOffset
-            The 8-digit synset offset.
+        offset : SynsetOffset | SynsetKey
+            An 8-digit synset offset, or a 9-character canonical key with the
+            part of speech appended (e.g., ``"00001740n"``).
+        pos : WordNetPOS | None, default=None
+            Part of speech qualifying `offset`. Ignored when `offset` is
+            already a canonical key.
 
         Returns
         -------
         Synset | None
-            The synset or None if not found.
+            The synset, or None if not found or if a bare offset is ambiguous.
+
+        Notes
+        -----
+        Offsets are byte offsets into a per-POS data file, so 330 of them name
+        more than one synset in WordNet 3.1. An unqualified lookup on such an
+        offset returns None rather than choosing arbitrarily; pass `pos` or a
+        canonical key to disambiguate.
 
         Examples
         --------
         >>> synset = loader.get_synset("02084442")
         >>> print(synset.gloss)
+        >>> loader.get_synset("00001740", "v")  # qualified
+        >>> loader.get_synset("00001740v")  # equivalent
         """
+        key = self._resolve_key(offset, pos)
+        if key is None:
+            return None
         if self.lazy:
-            return self._load_synset_lazy(offset)
-        return self.synsets.get(offset)
+            return self._load_synset_lazy(key)
+        return self.synsets.get(key)
+
+    def _resolve_key(
+        self, offset: SynsetOffset | SynsetKey, pos: WordNetPOS | None = None
+    ) -> SynsetKey | None:
+        """Resolve an offset, key, or offset plus POS to a canonical key.
+
+        Parameters
+        ----------
+        offset : SynsetOffset | SynsetKey
+            Bare 8-digit offset or 9-character canonical key.
+        pos : WordNetPOS | None, default=None
+            Part of speech qualifying a bare offset.
+
+        Returns
+        -------
+        SynsetKey | None
+            The canonical key, or None if a bare offset is ambiguous.
+        """
+        if len(offset) == 9:
+            return make_synset_key(offset[:8], cast(WordNetPOS, offset[8]))
+        if pos is not None:
+            return make_synset_key(offset, pos)
+        keys = self._keys_by_offset.get(offset)
+        if keys is None or len(keys) != 1:
+            return None
+        return keys[0]
 
     def get_synsets_by_lemma(self, lemma: str, pos: WordNetPOS | None = None) -> list[Synset]:
         """Get all synsets containing a lemma.
@@ -418,10 +490,15 @@ class WordNetLoader:
         else:
             pos_tags = list(self.lemma_index[lemma_lower].keys())
 
-        # Collect synsets from offset lists
+        # Collect synsets by key. Satellites are indexed under both "s" and
+        # "a", so track seen keys to avoid returning them twice.
+        seen: set[SynsetKey] = set()
         for pos_tag in pos_tags:
-            for offset in self.lemma_index[lemma_lower].get(pos_tag, []):
-                synset = self.get_synset(offset)
+            for key in self.lemma_index[lemma_lower].get(pos_tag, []):
+                if key in seen:
+                    continue
+                seen.add(key)
+                synset = self.get_synset(key)
                 if synset:
                     synsets.append(synset)
 
@@ -493,8 +570,8 @@ class WordNetLoader:
             List of hypernym synsets.
         """
         hypernyms = []
-        for offset in self.hypernym_index.get(synset.offset, []):
-            hypernym = self.get_synset(offset)
+        for key in self.hypernym_index.get(synset.key, []):
+            hypernym = self.get_synset(key)
             if hypernym:
                 hypernyms.append(hypernym)
         return hypernyms
@@ -513,8 +590,8 @@ class WordNetLoader:
             List of hyponym synsets.
         """
         hyponyms = []
-        for offset in self.hyponym_index.get(synset.offset, []):
-            hyponym = self.get_synset(offset)
+        for key in self.hyponym_index.get(synset.key, []):
+            hyponym = self.get_synset(key)
             if hyponym:
                 hyponyms.append(hyponym)
         return hyponyms
@@ -533,8 +610,8 @@ class WordNetLoader:
             List of meronym synsets.
         """
         meronyms = []
-        for offset in self.meronym_index.get(synset.offset, []):
-            meronym = self.get_synset(offset)
+        for key in self.meronym_index.get(synset.key, []):
+            meronym = self.get_synset(key)
             if meronym:
                 meronyms.append(meronym)
         return meronyms
@@ -553,8 +630,8 @@ class WordNetLoader:
             List of holonym synsets.
         """
         holonyms = []
-        for offset in self.holonym_index.get(synset.offset, []):
-            holonym = self.get_synset(offset)
+        for key in self.holonym_index.get(synset.key, []):
+            holonym = self.get_synset(key)
             if holonym:
                 holonyms.append(holonym)
         return holonyms

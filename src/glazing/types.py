@@ -161,9 +161,10 @@ VERBNET_CLASS_PATTERN = r"^[a-z_]+-[0-9]+(?:\.[0-9]+)*(?:-[0-9]+)*$"  # e.g., "g
 VERBNET_KEY_PATTERN = r"^[a-z_-]+#\d+$"  # e.g., "give#2"
 
 # Name validation patterns
-LEMMA_PATTERN = (
-    r"^[a-zA-Z0-9][a-zA-Z0-9_\'\-\.\/]*$"  # Word lemmas (incl. proper nouns, abbreviations)
-)
+# Word lemmas (incl. proper nouns and abbreviations). A single leading dot or
+# apostrophe is allowed because WordNet lemmatizes calibre terms as
+# ".22_caliber" and elided forms as "'hood", "'tween", "'s_Gravenhage".
+LEMMA_PATTERN = r"^['.]?[a-zA-Z0-9][a-zA-Z0-9_\'\-\.\/]*$"
 
 # Color validation for FrameNet
 HEX_COLOR_PATTERN = r"^#?[0-9A-Fa-f]{6}$"  # 6-digit hex color with optional # prefix

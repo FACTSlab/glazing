@@ -31,7 +31,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="that which is perceived or known or inferred to have its own distinct existence",
         )
-        synsets["00001740"] = entity_synset
+        synsets[entity_synset.key] = entity_synset
 
         # Create physical_entity synset
         physical_synset = Synset(
@@ -50,7 +50,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="an entity that has physical existence",
         )
-        synsets["00002137"] = physical_synset
+        synsets[physical_synset.key] = physical_synset
 
         # Create object synset
         object_synset = Synset(
@@ -72,7 +72,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="a tangible and visible entity",
         )
-        synsets["00002684"] = object_synset
+        synsets[object_synset.key] = object_synset
 
         # Create living_thing synset
         living_synset = Synset(
@@ -93,7 +93,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="a living entity",
         )
-        synsets["02083346"] = living_synset
+        synsets[living_synset.key] = living_synset
 
         # Create dog synset
         dog_synset = Synset(
@@ -115,7 +115,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="a member of the genus Canis",
         )
-        synsets["02084442"] = dog_synset
+        synsets[dog_synset.key] = dog_synset
 
         # Create cat synset
         cat_synset = Synset(
@@ -131,7 +131,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="feline mammal",
         )
-        synsets["02121620"] = cat_synset
+        synsets[cat_synset.key] = cat_synset
 
         # Create pack synset (for holonym)
         pack_synset = Synset(
@@ -147,7 +147,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="a group of hunting animals",
         )
-        synsets["08008335"] = pack_synset
+        synsets[pack_synset.key] = pack_synset
 
         # Create paw synset (for meronym)
         paw_synset = Synset(
@@ -163,7 +163,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="a clawed foot of an animal",
         )
-        synsets["02159955"] = paw_synset
+        synsets[paw_synset.key] = paw_synset
 
         # Create run synset (verb)
         run_synset = Synset(
@@ -185,7 +185,7 @@ class TestWordNetRelationTraverser:
             frames=[VerbFrame(frame_number=1, word_indices=[0])],
             gloss="move fast by using one's feet",
         )
-        synsets["02092002"] = run_synset
+        synsets[run_synset.key] = run_synset
 
         # Create travel synset (verb hypernym)
         travel_synset = Synset(
@@ -199,7 +199,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="change location; move, travel, or proceed",
         )
-        synsets["01835496"] = travel_synset
+        synsets[travel_synset.key] = travel_synset
 
         # Create move synset (entailment)
         move_synset = Synset(
@@ -211,7 +211,7 @@ class TestWordNetRelationTraverser:
             pointers=[],
             gloss="change position",
         )
-        synsets["02092309"] = move_synset
+        synsets[move_synset.key] = move_synset
 
         # Create rush synset (cause)
         rush_synset = Synset(
@@ -223,7 +223,7 @@ class TestWordNetRelationTraverser:
             pointers=[],
             gloss="move fast",
         )
-        synsets["02093321"] = rush_synset
+        synsets[rush_synset.key] = rush_synset
 
         # Create good synset (adjective)
         good_synset = Synset(
@@ -246,7 +246,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="having desirable or positive qualities",
         )
-        synsets["01123148"] = good_synset
+        synsets[good_synset.key] = good_synset
 
         # Create bad synset (antonym)
         bad_synset = Synset(
@@ -262,7 +262,7 @@ class TestWordNetRelationTraverser:
             ],
             gloss="having undesirable or negative qualities",
         )
-        synsets["01125429"] = bad_synset
+        synsets[bad_synset.key] = bad_synset
 
         # Create nice synset (similar)
         nice_synset = Synset(
@@ -274,7 +274,7 @@ class TestWordNetRelationTraverser:
             pointers=[],
             gloss="pleasant or pleasing",
         )
-        synsets["01124073"] = nice_synset
+        synsets[nice_synset.key] = nice_synset
 
         # Create goodness synset (derivation)
         goodness_synset = Synset(
@@ -290,14 +290,14 @@ class TestWordNetRelationTraverser:
             ],
             gloss="the quality of being good",
         )
-        synsets["05145118"] = goodness_synset
+        synsets[goodness_synset.key] = goodness_synset
 
         return synsets
 
     def test_get_hypernyms_direct(self, sample_synsets_dict):
         """Test getting direct hypernyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         hypernyms = traverser.get_hypernyms(dog_synset, direct_only=True)
         assert len(hypernyms) == 1
@@ -306,7 +306,7 @@ class TestWordNetRelationTraverser:
     def test_get_hypernyms_all(self, sample_synsets_dict):
         """Test getting all hypernyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         hypernyms = traverser.get_hypernyms(dog_synset, direct_only=False)
         assert len(hypernyms) == 4
@@ -319,7 +319,7 @@ class TestWordNetRelationTraverser:
     def test_get_hyponyms_direct(self, sample_synsets_dict):
         """Test getting direct hyponyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        living_synset = sample_synsets_dict["02083346"]
+        living_synset = sample_synsets_dict["02083346n"]
 
         hyponyms = traverser.get_hyponyms(living_synset, direct_only=True)
         assert len(hyponyms) == 2
@@ -330,7 +330,7 @@ class TestWordNetRelationTraverser:
     def test_get_hyponyms_all(self, sample_synsets_dict):
         """Test getting all hyponyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        object_synset = sample_synsets_dict["00002684"]
+        object_synset = sample_synsets_dict["00002684n"]
 
         hyponyms = traverser.get_hyponyms(object_synset, direct_only=False)
         assert len(hyponyms) == 3
@@ -342,7 +342,7 @@ class TestWordNetRelationTraverser:
     def test_get_hypernym_paths(self, sample_synsets_dict):
         """Test getting hypernym paths to root."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         paths = traverser.get_hypernym_paths(dog_synset, max_depth=10)
         assert len(paths) == 1  # Only one path to root
@@ -358,8 +358,8 @@ class TestWordNetRelationTraverser:
     def test_get_common_hypernyms(self, sample_synsets_dict):
         """Test finding common hypernyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
-        cat_synset = sample_synsets_dict["02121620"]
+        dog_synset = sample_synsets_dict["02084442n"]
+        cat_synset = sample_synsets_dict["02121620n"]
 
         common = traverser.get_common_hypernyms(dog_synset, cat_synset)
         assert len(common) == 4
@@ -372,7 +372,7 @@ class TestWordNetRelationTraverser:
     def test_get_meronyms(self, sample_synsets_dict):
         """Test getting meronyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         # Get all meronyms
         meronyms = traverser.get_meronyms(dog_synset)
@@ -391,7 +391,7 @@ class TestWordNetRelationTraverser:
     def test_get_holonyms(self, sample_synsets_dict):
         """Test getting holonyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         # Get all holonyms
         holonyms = traverser.get_holonyms(dog_synset)
@@ -410,49 +410,49 @@ class TestWordNetRelationTraverser:
     def test_get_entailments(self, sample_synsets_dict):
         """Test getting entailments for verbs."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        run_synset = sample_synsets_dict["02092002"]
+        run_synset = sample_synsets_dict["02092002v"]
 
         entailments = traverser.get_entailments(run_synset)
         assert len(entailments) == 1
         assert entailments[0].offset == "02092309"  # move
 
         # Non-verb synset
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
         entailments = traverser.get_entailments(dog_synset)
         assert len(entailments) == 0
 
     def test_get_causes(self, sample_synsets_dict):
         """Test getting causes for verbs."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        run_synset = sample_synsets_dict["02092002"]
+        run_synset = sample_synsets_dict["02092002v"]
 
         causes = traverser.get_causes(run_synset)
         assert len(causes) == 1
         assert causes[0].offset == "02093321"  # rush
 
         # Non-verb synset
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
         causes = traverser.get_causes(dog_synset)
         assert len(causes) == 0
 
     def test_get_similar_to(self, sample_synsets_dict):
         """Test getting similar adjectives."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        good_synset = sample_synsets_dict["01123148"]
+        good_synset = sample_synsets_dict["01123148a"]
 
         similar = traverser.get_similar_to(good_synset)
         assert len(similar) == 1
         assert similar[0].offset == "01124073"  # nice
 
         # Non-adjective synset
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
         similar = traverser.get_similar_to(dog_synset)
         assert len(similar) == 0
 
     def test_get_also_see(self, sample_synsets_dict):
         """Test getting also-see relations."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        good_synset = sample_synsets_dict["01123148"]
+        good_synset = sample_synsets_dict["01123148a"]
 
         also_see = traverser.get_also_see(good_synset)
         assert len(also_see) == 0  # No also-see in our test data
@@ -460,7 +460,7 @@ class TestWordNetRelationTraverser:
     def test_get_antonyms(self, sample_synsets_dict):
         """Test getting antonyms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        good_synset = sample_synsets_dict["01123148"]
+        good_synset = sample_synsets_dict["01123148a"]
 
         # Get all antonyms
         antonyms = traverser.get_antonyms(good_synset)
@@ -471,7 +471,7 @@ class TestWordNetRelationTraverser:
     def test_get_derivations(self, sample_synsets_dict):
         """Test getting derivationally related forms."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        good_synset = sample_synsets_dict["01123148"]
+        good_synset = sample_synsets_dict["01123148a"]
 
         # Get derivations
         derivations = traverser.get_derivations(good_synset)
@@ -482,8 +482,8 @@ class TestWordNetRelationTraverser:
     def test_calculate_path_similarity(self, sample_synsets_dict):
         """Test calculating path similarity."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
-        cat_synset = sample_synsets_dict["02121620"]
+        dog_synset = sample_synsets_dict["02084442n"]
+        cat_synset = sample_synsets_dict["02121620n"]
 
         # Dog and cat similarity
         similarity = traverser.calculate_path_similarity(dog_synset, cat_synset)
@@ -494,7 +494,7 @@ class TestWordNetRelationTraverser:
         assert similarity == 1.0
 
         # Different POS
-        run_synset = sample_synsets_dict["02092002"]
+        run_synset = sample_synsets_dict["02092002v"]
         similarity = traverser.calculate_path_similarity(dog_synset, run_synset)
         assert similarity == 0.0
 
@@ -503,32 +503,32 @@ class TestWordNetRelationTraverser:
         traverser = WordNetRelationTraverser(sample_synsets_dict)
 
         # Entity (root) has depth 0
-        entity_synset = sample_synsets_dict["00001740"]
+        entity_synset = sample_synsets_dict["00001740n"]
         depth = traverser.calculate_depth(entity_synset)
         assert depth == 0
 
         # Dog has depth 4
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
         depth = traverser.calculate_depth(dog_synset)
         assert depth == 4
 
     def test_get_verb_groups(self, sample_synsets_dict):
         """Test getting verb groups."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        run_synset = sample_synsets_dict["02092002"]
+        run_synset = sample_synsets_dict["02092002v"]
 
         groups = traverser.get_verb_groups(run_synset)
         assert len(groups) == 0  # No verb group target in our test data
 
         # Non-verb synset
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
         groups = traverser.get_verb_groups(dog_synset)
         assert len(groups) == 0
 
     def test_get_all_relations(self, sample_synsets_dict):
         """Test getting all relations for a synset."""
         traverser = WordNetRelationTraverser(sample_synsets_dict)
-        dog_synset = sample_synsets_dict["02084442"]
+        dog_synset = sample_synsets_dict["02084442n"]
 
         relations = traverser.get_all_relations(dog_synset)
 

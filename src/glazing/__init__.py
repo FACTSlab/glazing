@@ -31,7 +31,7 @@ import sys
 import warnings
 
 from glazing.__version__ import __version__, __version_info__
-from glazing.initialize import check_initialization, get_default_data_dir
+from glazing.initialize import check_initialization, get_default_data_dir, is_data_current
 
 
 def _check_initialization() -> None:
@@ -47,12 +47,20 @@ def _check_initialization() -> None:
     ):
         return
 
+    data_dir = get_default_data_dir()
     if not check_initialization():
-        data_dir = get_default_data_dir()
         warnings.warn(
             f"\nGlazing datasets not initialized.\n"
             f"Run 'glazing init' to download and convert all datasets.\n"
             f"Data will be stored in: {data_dir}",
+            UserWarning,
+            stacklevel=2,
+        )
+    elif not is_data_current():
+        warnings.warn(
+            f"\nGlazing datasets were converted by an older version and are out of date.\n"
+            f"Run 'glazing init' to re-convert them from the downloaded source files.\n"
+            f"Data location: {data_dir}",
             UserWarning,
             stacklevel=2,
         )

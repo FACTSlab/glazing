@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from glazing.framenet.loader import FrameNetLoader
 from glazing.framenet.models import Frame
@@ -36,6 +37,7 @@ from glazing.wordnet.loader import WordNetLoader
 from glazing.wordnet.models import Synset
 from glazing.wordnet.search import WordNetSearch
 from glazing.wordnet.symbol_parser import filter_by_relation_type
+from glazing.wordnet.types import WordNetPOS, normalize_pos
 
 
 @dataclass
@@ -395,20 +397,20 @@ class UnifiedSearch:
             return None
 
         pos_lower = pos.lower()
-        pos_map = {
-            "v": "v",
+        spelled_out: dict[str, WordNetPOS] = {
             "verb": "v",
-            "n": "n",
             "noun": "n",
-            "a": "a",
             "adj": "a",
             "adjective": "a",
-            "s": "a",
-            "r": "r",
             "adv": "r",
             "adverb": "r",
         }
-        return pos_map.get(pos_lower)
+        if pos_lower in spelled_out:
+            return spelled_out[pos_lower]
+        if pos_lower in ("n", "v", "a", "r", "s"):
+            # normalize_pos folds satellites ("s") into "a".
+            return normalize_pos(cast(WordNetPOS, pos_lower))
+        return None
 
     def _search_propbank_by_lemma(self, lemma: str) -> tuple[list[Frameset], list[Roleset]]:
         """Search PropBank by lemma.
@@ -681,7 +683,7 @@ class UnifiedSearch:
         if self.wordnet:
             synsets = self.wordnet.by_lemma(query)
             for synset in synsets:
-                synset_id = f"{synset.offset:08d}{synset.ss_type}"
+                synset_id = synset.key
                 results.append(
                     SearchResult(
                         dataset="wordnet",
@@ -1165,9 +1167,9 @@ class UnifiedSearch:
             # Merge synsets with existing ones
             existing_synsets = self.wordnet.get_all_synsets()
             # Create a dict to merge by offset to avoid duplicates
-            synset_dict = {f"{s.offset:08d}{s.ss_type}": s for s in existing_synsets}
+            synset_dict = {s.key: s for s in existing_synsets}
             for synset in synsets:
-                synset_id = f"{synset.offset:08d}{synset.ss_type}"
+                synset_id = synset.key
                 synset_dict[synset_id] = synset
             # Recreate WordNetSearch with merged synsets
             self.wordnet = WordNetSearch(list(synset_dict.values()))
@@ -1230,7 +1232,7 @@ class UnifiedSearch:
                 for word in synset.words:
                     similarity = levenshtein_ratio(query_normalized, word.lemma.lower())
                     if similarity >= fuzzy_threshold:
-                        synset_id = f"{synset.offset:08d}{synset.ss_type}"
+                        synset_id = synset.key
                         results.append(
                             SearchResult(
                                 dataset="wordnet",

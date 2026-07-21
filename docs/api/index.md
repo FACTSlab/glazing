@@ -118,7 +118,7 @@ except ValidationError as e:
 
 ## Version Compatibility
 
-This documentation covers glazing version 0.2.3. Check your installed version:
+This documentation covers glazing version 0.3.0. Check your installed version:
 
 ```python
 import glazing

@@ -19,6 +19,8 @@ SynsetID : type[Annotated[str, Field]]
     Full synset identifier with POS (e.g., "00001740-n").
 SynsetOffset : type[Annotated[str, Field]]
     8-digit synset identifier with validation.
+SynsetKey : type[Annotated[str, Field]]
+    Canonical synset key: offset plus normalized POS (e.g., "00001740n").
 SenseKey : type[Annotated[str, Field]]
     WordNet sense key with format validation.
 LemmaKey : type[Annotated[str, Field]]
@@ -39,12 +41,23 @@ LEMMA_KEY_PATTERN : str
     Regex pattern for lemma key validation.
 PERCENTAGE_NOTATION_PATTERN : str
     Regex pattern for VerbNet percentage notation.
+WORDNET_SYNSET_KEY_PATTERN : str
+    Regex pattern for canonical synset keys.
+
+Functions
+---------
+normalize_pos
+    Normalize a WordNet POS to its data-file category ("s" becomes "a").
+make_synset_key
+    Build the canonical key identifying a synset across the database.
 
 Examples
 --------
->>> from glazing.wordnet.types import WordNetPOS, SynsetOffset
+>>> from glazing.wordnet.types import WordNetPOS, SynsetOffset, make_synset_key
 >>> pos: WordNetPOS = "v"
 >>> offset: SynsetOffset = "00001740"
+>>> make_synset_key(offset, pos)
+'00001740v'
 """
 
 from typing import Annotated, Literal
@@ -206,6 +219,9 @@ SYNSET_ID_PATTERN = r"^[0-9]{8}-?[nvasr]$"
 # WordNet lemma key (lemma#pos#sense)
 LEMMA_KEY_PATTERN = r"^[a-z0-9_.-]+#[nvasr]#[0-9]+$"
 
+# Canonical synset key (offset with normalized POS; satellites key as "a")
+WORDNET_SYNSET_KEY_PATTERN = r"^[0-9]{8}[nvar]$"
+
 # Validated string types with constraints
 
 # Full synset identifier with POS (e.g., "00001740-n" or "00001740n")
@@ -223,6 +239,15 @@ type SynsetOffset = Annotated[
     Field(
         pattern=WORDNET_OFFSET_PATTERN,
         description="8-digit zero-padded synset offset (e.g., '00001740')",
+    ),
+]
+
+# Canonical synset key: offset plus normalized POS (e.g., "00001740n")
+type SynsetKey = Annotated[
+    str,
+    Field(
+        pattern=WORDNET_SYNSET_KEY_PATTERN,
+        description="Synset key: offset plus normalized POS (e.g., '00001740n')",
     ),
 ]
 
@@ -277,3 +302,61 @@ type Lemma = str
 
 # Synset offset string
 type Offset = str
+
+
+def normalize_pos(pos: WordNetPOS) -> WordNetPOS:
+    """Normalize a WordNet POS to its data-file category.
+
+    Adjective satellites (``"s"``) live in ``data.adj`` alongside adjective
+    heads, and WordNet pointers targeting a satellite always carry ``"a"`` in
+    their POS field. Normalizing ``"s"`` to ``"a"`` therefore lets a synset
+    record and any pointer referencing it agree on a single key.
+
+    Parameters
+    ----------
+    pos : WordNetPOS
+        Part of speech to normalize.
+
+    Returns
+    -------
+    WordNetPOS
+        ``"a"`` when `pos` is ``"s"``, otherwise `pos` unchanged.
+
+    Examples
+    --------
+    >>> normalize_pos("s")
+    'a'
+    >>> normalize_pos("v")
+    'v'
+    """
+    return "a" if pos == "s" else pos
+
+
+def make_synset_key(offset: SynsetOffset, pos: WordNetPOS) -> SynsetKey:
+    """Build the canonical key identifying a synset.
+
+    WordNet offsets are byte offsets into a per-POS data file, so they are
+    unique only within a file - 330 offsets in WordNet 3.1 occur in more than
+    one ``data.*`` file. Pairing the offset with its normalized POS yields a
+    key that is unique across the whole database.
+
+    Parameters
+    ----------
+    offset : SynsetOffset
+        8-digit zero-padded synset offset.
+    pos : WordNetPOS
+        Part of speech; ``"s"`` is normalized to ``"a"``.
+
+    Returns
+    -------
+    SynsetKey
+        Offset concatenated with the normalized POS.
+
+    Examples
+    --------
+    >>> make_synset_key("00001740", "n")
+    '00001740n'
+    >>> make_synset_key("00014377", "s")
+    '00014377a'
+    """
+    return f"{offset}{normalize_pos(pos)}"
