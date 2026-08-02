@@ -299,9 +299,9 @@ class ReferenceExtractor:
         # Index lexlinks (frame-level mappings with confidence)
         for lexlink in roleset.lexlinks:
             # Normalize dataset names including "Framenet" variant
-            if lexlink.resource == "verbnet":
+            if lexlink.resource.lower() == "verbnet":
                 target_dataset: DatasetType = "verbnet"
-            elif lexlink.resource in ["FrameNet", "Framenet"]:
+            elif lexlink.resource in ["FrameNet", "Framenet", "framenet"]:
                 target_dataset = "framenet"
             else:
                 msg = f"Unknown lexlink resource type: {lexlink.resource}"
@@ -332,7 +332,7 @@ class ReferenceExtractor:
         for role in roleset.roles:
             for rolelink in role.rolelinks:
                 # Normalize rolelink resource names
-                if rolelink.resource == "verbnet":
+                if rolelink.resource.lower() == "verbnet":
                     rolelink_target: DatasetType = "verbnet"
                 elif rolelink.resource in ["FrameNet", "Framenet", "framenet"]:
                     rolelink_target = "framenet"
